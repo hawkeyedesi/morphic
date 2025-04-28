@@ -22,6 +22,7 @@ export async function getFileAttachmentsForChat(chatId: string): Promise<FileAtt
       return []
     }
     
+    
     // Get file metadata for each file
     const fileAttachments: FileAttachment[] = []
     
