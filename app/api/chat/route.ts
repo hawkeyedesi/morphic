@@ -1,6 +1,7 @@
 import { createManualToolStreamResponse } from '@/lib/streaming/create-manual-tool-stream'
 import { createToolCallingStreamResponse } from '@/lib/streaming/create-tool-calling-stream'
 import { Model } from '@/lib/types/models'
+import { processFileAttachments } from '@/lib/utils/attachment-utils'
 import { isProviderEnabled } from '@/lib/utils/registry'
 import { cookies } from 'next/headers'
 
@@ -27,6 +28,9 @@ export async function POST(req: Request) {
         statusText: 'Forbidden'
       })
     }
+    
+    // Process file attachments in messages
+    const processedMessages = await processFileAttachments(messages, chatId)
 
     const cookieStore = await cookies()
     const modelJson = cookieStore.get('selectedModel')?.value
@@ -59,13 +63,13 @@ export async function POST(req: Request) {
 
     return supportsToolCalling
       ? createToolCallingStreamResponse({
-          messages,
+          messages: processedMessages,
           model: selectedModel,
           chatId,
           searchMode
         })
       : createManualToolStreamResponse({
-          messages,
+          messages: processedMessages,
           model: selectedModel,
           chatId,
           searchMode

@@ -1,13 +1,15 @@
 'use client'
 
+import { FileAttachment as FileAttachmentType } from '@/lib/types/file'
 import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
 import { Message } from 'ai'
-import { ArrowUp, ChevronDown, MessageCirclePlus, Square } from 'lucide-react'
+import { ArrowUp, ChevronDown, MessageCirclePlus, Paperclip, Square } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Textarea from 'react-textarea-autosize'
 import { EmptyScreen } from './empty-screen'
+import { FileAttachmentsSection } from './file-attachments-section'
 import { ModelSelector } from './model-selector'
 import { SearchModeToggle } from './search-mode-toggle'
 import { Button } from './ui/button'
@@ -26,6 +28,13 @@ interface ChatPanelProps {
   models?: Model[]
   /** Whether auto-scroll is currently active (at bottom) */
   isAutoScroll: boolean
+  chatId: string
+  /** Associated file attachments */
+  attachedFiles?: Partial<FileAttachmentType>[]
+  /** Called when files are attached */
+  onAttach?: (files: Partial<FileAttachmentType>[]) => void
+  /** Called when a file is removed */
+  onRemoveFile?: (fileId: string) => void
 }
 
 export function ChatPanel({
@@ -39,7 +48,11 @@ export function ChatPanel({
   stop,
   append,
   models,
-  isAutoScroll
+  isAutoScroll,
+  chatId,
+  attachedFiles = [],
+  onAttach,
+  onRemoveFile
 }: ChatPanelProps) {
   const [showEmptyScreen, setShowEmptyScreen] = useState(false)
   const router = useRouter()
@@ -47,6 +60,7 @@ export function ChatPanel({
   const isFirstRender = useRef(true)
   const [isComposing, setIsComposing] = useState(false) // Composition state
   const [enterDisabled, setEnterDisabled] = useState(false) // Disable Enter after composition ends
+  const [showAttachments, setShowAttachments] = useState(false)
 
   const handleCompositionStart = () => setIsComposing(true)
 
@@ -174,6 +188,15 @@ export function ChatPanel({
             <div className="flex items-center gap-2">
               <ModelSelector models={models || []} />
               <SearchModeToggle />
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full"
+                type="button"
+                onClick={() => setShowAttachments(!showAttachments)}
+              >
+                <Paperclip className="size-4" />
+              </Button>
             </div>
             <div className="flex items-center gap-2">
               {messages.length > 0 && (
@@ -203,6 +226,19 @@ export function ChatPanel({
               </Button>
             </div>
           </div>
+
+          {/* File attachments section */}
+          {showAttachments && (
+            <div className="px-3 pb-3">
+              <FileAttachmentsSection
+                chatId={chatId}
+                isDisabled={isLoading || isToolInvocationInProgress()}
+                attachedFiles={attachedFiles}
+                onAttach={onAttach}
+                onRemove={onRemoveFile}
+              />
+            </div>
+          )}
         </div>
 
         {messages.length === 0 && (

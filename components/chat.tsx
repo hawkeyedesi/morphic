@@ -2,10 +2,11 @@
 
 import { CHAT_ID } from '@/lib/constants'
 import { useAutoScroll } from '@/lib/hooks/use-auto-scroll'
+import { FileAttachment } from '@/lib/types/file'
 import { Model } from '@/lib/types/models'
 import { useChat } from '@ai-sdk/react'
 import { Message } from 'ai/react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { ChatMessages } from './chat-messages'
 import { ChatPanel } from './chat-panel'
@@ -32,7 +33,8 @@ export function Chat({
     append,
     data,
     setData,
-    addToolResult
+    addToolResult,
+    setInput
   } = useChat({
     initialMessages: savedMessages,
     id: CHAT_ID,
@@ -50,6 +52,9 @@ export function Chat({
   })
 
   const isLoading = status === 'submitted' || status === 'streaming'
+  
+  // State for file attachments
+  const [attachedFiles, setAttachedFiles] = useState<Partial<FileAttachment>[]>([])
 
   // Manage auto-scroll and user scroll cancel
   const { anchorRef, isAutoScroll } = useAutoScroll({
@@ -67,12 +72,39 @@ export function Chat({
       role: 'user',
       content: query
     })
+    setAttachedFiles([]) // Clear attachments after sending a message
   }
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setData(undefined) // reset data to clear tool call
+    
+    // Add file attachments information to the message if there are any
+    if (attachedFiles.length > 0) {
+      const fileInfos = attachedFiles.map(file => ({
+        id: file.id,
+        name: file.originalName,
+        type: file.mimeType
+      }))
+      
+      // Only prepend if not already starting with this
+      if (!input.startsWith('Files attached:')) {
+        setInput(`Files attached: ${JSON.stringify(fileInfos)}\n\n${input}`)
+      }
+    }
+    
     handleSubmit(e)
+    setAttachedFiles([]) // Clear attachments after sending a message
+  }
+  
+  // Handle file attachment
+  const handleAttachFiles = (files: Partial<FileAttachment>[]) => {
+    setAttachedFiles([...attachedFiles, ...files])
+  }
+  
+  // Handle file removal
+  const handleRemoveFile = (fileId: string) => {
+    setAttachedFiles(attachedFiles.filter(file => file.id !== fileId))
   }
 
   return (
@@ -98,6 +130,10 @@ export function Chat({
         append={append}
         models={models}
         isAutoScroll={isAutoScroll}
+        chatId={id}
+        attachedFiles={attachedFiles}
+        onAttach={handleAttachFiles}
+        onRemoveFile={handleRemoveFile}
       />
     </div>
   )

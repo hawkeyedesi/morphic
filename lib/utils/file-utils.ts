@@ -6,6 +6,25 @@ import { FileAttachment } from '../types/file'
 // Base directory for file uploads
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads')
 
+// In-memory storage for demo environments where filesystem operations may not be available
+const memoryStorage: Record<string, {
+  buffer: Buffer,
+  metadata: FileAttachment
+}> = {}
+
+// Check if we can use filesystem
+let useFilesystem = true;
+try {
+  // Test if we can write to the filesystem
+  const testDir = path.join(UPLOADS_DIR, 'test');
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+} catch (error) {
+  console.warn('Cannot access filesystem, using in-memory storage instead');
+  useFilesystem = false;
+}
+
 /**
  * Ensures the upload directory structure exists
  * 
@@ -14,12 +33,22 @@ const UPLOADS_DIR = path.join(process.cwd(), 'uploads')
  * @returns The full path to the directory
  */
 export async function ensureUploadDirectory(userId: string, chatId: string): Promise<string> {
+  // If we're using in-memory storage, just return a virtual path
+  if (!useFilesystem) {
+    return path.join(UPLOADS_DIR, userId, chatId);
+  }
+
   const dirPath = path.join(UPLOADS_DIR, userId, chatId)
   
-  // Create directory recursively if it doesn't exist
-  await fs.promises.mkdir(dirPath, { recursive: true })
-  
-  return dirPath
+  try {
+    // Create directory recursively if it doesn't exist
+    await fs.promises.mkdir(dirPath, { recursive: true })
+    return dirPath
+  } catch (error) {
+    console.warn(`Could not create directory ${dirPath}, using in-memory storage`);
+    useFilesystem = false;
+    return path.join(UPLOADS_DIR, userId, chatId);
+  }
 }
 
 /**
@@ -38,32 +67,45 @@ export async function storeFile(
   // Generate a unique ID for the file
   const fileId = uuidv4()
   
-  // Ensure the upload directory exists
-  const uploadDir = await ensureUploadDirectory(userId, chatId)
-  
   // Get file extension
   const fileExt = path.extname(file.name)
   
   // Create a safe filename with the UUID and original extension
   const fileName = `${fileId}${fileExt}`
-  const filePath = path.join(uploadDir, fileName)
+  const storagePath = path.join(userId, chatId, fileName)
   
   // Convert the File object to a Buffer
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
   
-  // Write the file to disk
-  await fs.promises.writeFile(filePath, buffer)
-  
-  // Create and return file metadata
+  // Create file metadata
   const fileAttachment: FileAttachment = {
     id: fileId,
     originalName: file.name,
-    storagePath: path.join(userId, chatId, fileName), // Store relative path
+    storagePath: storagePath, // Store relative path
     mimeType: file.type,
     size: file.size,
     uploadedAt: new Date(),
     processingStatus: 'pending'
+  }
+  
+  if (useFilesystem) {
+    try {
+      // Ensure the upload directory exists
+      const uploadDir = await ensureUploadDirectory(userId, chatId)
+      const filePath = path.join(uploadDir, fileName)
+      
+      // Write the file to disk
+      await fs.promises.writeFile(filePath, buffer)
+    } catch (error) {
+      console.warn(`Could not write file to disk, using in-memory storage`, error);
+      useFilesystem = false;
+      // Store in memory
+      memoryStorage[fileId] = { buffer, metadata: fileAttachment };
+    }
+  } else {
+    // Store in memory
+    memoryStorage[fileId] = { buffer, metadata: fileAttachment };
   }
   
   return fileAttachment
@@ -86,8 +128,23 @@ export function getAbsoluteFilePath(storagePath: string): string {
  * @returns File buffer
  */
 export async function readFile(fileAttachment: FileAttachment): Promise<Buffer> {
-  const filePath = getAbsoluteFilePath(fileAttachment.storagePath)
-  return fs.promises.readFile(filePath)
+  // Check if file exists in memory storage
+  if (memoryStorage[fileAttachment.id]) {
+    return memoryStorage[fileAttachment.id].buffer;
+  }
+  
+  // Otherwise try to read from filesystem
+  if (useFilesystem) {
+    try {
+      const filePath = getAbsoluteFilePath(fileAttachment.storagePath)
+      return fs.promises.readFile(filePath)
+    } catch (error) {
+      console.error(`Error reading file from disk:`, error);
+      throw new Error('File not found');
+    }
+  }
+  
+  throw new Error('File not found');
 }
 
 /**
@@ -96,13 +153,25 @@ export async function readFile(fileAttachment: FileAttachment): Promise<Buffer> 
  * @param fileAttachment - File attachment metadata
  */
 export async function deleteFile(fileAttachment: FileAttachment): Promise<void> {
-  const filePath = getAbsoluteFilePath(fileAttachment.storagePath)
+  // Delete from memory storage if exists
+  if (memoryStorage[fileAttachment.id]) {
+    delete memoryStorage[fileAttachment.id];
+    return;
+  }
   
-  try {
-    await fs.promises.unlink(filePath)
-  } catch (error) {
-    console.error(`Error deleting file ${filePath}:`, error)
-    throw error
+  // Otherwise try to delete from filesystem
+  if (useFilesystem) {
+    const filePath = getAbsoluteFilePath(fileAttachment.storagePath)
+    
+    try {
+      await fs.promises.unlink(filePath)
+    } catch (error) {
+      console.error(`Error deleting file ${filePath}:`, error)
+      // Don't throw error if file doesn't exist
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
   }
 }
 
