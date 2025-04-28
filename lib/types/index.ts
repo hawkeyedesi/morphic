@@ -1,4 +1,5 @@
-import { CoreMessage, JSONValue, Message } from 'ai'
+import { CoreMessage, JSONValue } from 'ai'
+import { FileAttachment } from './file'
 
 export type SearchResults = {
   images: SearchResultImage[]
@@ -65,12 +66,14 @@ export interface Chat extends Record<string, any> {
   path: string
   messages: ExtendedCoreMessage[] // Note: Changed from AIMessage to ExtendedCoreMessage
   sharePath?: string
+  attachments?: FileAttachment[] // Added for file attachment feature
 }
 
-// ExtendedCoreMessage for saveing annotations
+// ExtendedCoreMessage for saving annotations
 export type ExtendedCoreMessage = Omit<CoreMessage, 'role' | 'content'> & {
   role: CoreMessage['role'] | 'data'
   content: CoreMessage['content'] | JSONValue
+  attachments?: FileAttachment[] // Added for file attachment feature
 }
 
 export type AIMessage = {
