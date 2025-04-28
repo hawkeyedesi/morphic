@@ -1,9 +1,7 @@
 'use client'
 
-import { CHAT_ID } from '@/lib/constants'
 import type { SearchResults as TypeSearchResults } from '@/lib/types'
 import { ToolInvocation } from 'ai'
-import { useChat } from 'ai/react'
 import { CollapsibleMessage } from './collapsible-message'
 import { SearchSkeleton } from './default-skeleton'
 import { SearchResults } from './search-results'
@@ -21,9 +19,8 @@ export function SearchSection({
   isOpen,
   onOpenChange
 }: SearchSectionProps) {
-  const { isLoading } = useChat({
-    id: CHAT_ID
-  })
+  // Don't create a new useChat instance here as it's causing circular updates
+  // We only need to check the tool state
   const isToolLoading = tool.state === 'call'
   const searchResults: TypeSearchResults =
     tool.state === 'result' ? tool.result : undefined
@@ -59,7 +56,7 @@ export function SearchSection({
             />
           </Section>
         )}
-      {isLoading && isToolLoading ? (
+      {isToolLoading ? (
         <SearchSkeleton />
       ) : searchResults?.results ? (
         <Section title="Sources">

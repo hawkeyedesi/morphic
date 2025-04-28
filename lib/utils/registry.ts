@@ -20,7 +20,9 @@ const RITS_MODEL_PATHS: Record<string, string> = {
   "meta-llama/llama-3-3-70b-instruct":   "/llama-3-3-70b-instruct/v1",
   "meta-llama/llama-4-maverick-17b-128e-instruct-fp8": "/llama-4-mvk-17b-128e-fp8/v1",
   "meta-llama/llama-4-scout-17b-16e": "/llama-4-scout-17b-16e/v1",
-  "Qwen/Qwen2.5-72B-Instruct":           "/qwen2-5-72b-instruct/v1",
+  "Qwen/Qwen2.5-72B-Instruct": "/qwen2-5-72b-instruct/v1",
+  "mistralai/mixtral-8x22B-instruct-v0.1": "/mixtral-8x22b-instruct-v01/v1",
+  "meta-llama/llama-3-1-405b-instruct-fp8":"llama-3-1-405b-instruct-fp8/v1"
 };
 
 // ---------- build one provider object ----------

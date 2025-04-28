@@ -18,7 +18,23 @@
     },
     {
       "id": "meta-llama/llama-3-3-70b-instruct",
-      "name": "Llama 3 3B Instruct (RITS)",
+      "name": "Llama 3.3 70B Instruct (RITS)",
+      "provider": "OpenAI Compatible",
+      "providerId": "openai-compatible",
+      "enabled": true,
+      "toolCallType": "native"
+    },
+    {
+      "id": "meta-llama/llama-3-1-405b-instruct-fp8",
+      "name": "Llama 3.1 405B Instruct (RITS)",
+      "provider": "OpenAI Compatible",
+      "providerId": "openai-compatible",
+      "enabled": true,
+      "toolCallType": "native"
+    },
+    {
+      "id": "mistralai/mixtral-8x22B-instruct-v0.1",
+      "name": "Mixtral MOE 22B (RITS)",
       "provider": "OpenAI Compatible",
       "providerId": "openai-compatible",
       "enabled": true,
