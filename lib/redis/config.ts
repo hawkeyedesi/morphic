@@ -94,6 +94,22 @@ export class RedisWrapper {
     }
   }
 
+  async sadd(key: string, member: string): Promise<number> {
+    if (this.client instanceof Redis) {
+      return this.client.sadd(key, member)
+    } else {
+      return (this.client as RedisClientType).sAdd(key, member)
+    }
+  }
+
+  async smembers(key: string): Promise<string[]> {
+    if (this.client instanceof Redis) {
+      return this.client.smembers(key)
+    } else {
+      return (this.client as RedisClientType).sMembers(key)
+    }
+  }
+
   async zrem(key: string, member: string): Promise<number> {
     if (this.client instanceof Redis) {
       return this.client.zrem(key, member)

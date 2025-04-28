@@ -1,41 +1,12 @@
+import { getRedisClient } from '@/lib/redis/config'
 import { FileAttachment } from '@/lib/types/file'
 import { storeFile, validateFile } from '@/lib/utils/file-utils'
-import { Redis } from '@upstash/redis'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Create Redis client
-// Create Redis client
-let redis: Redis;
-
-try {
-  redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!
-  });
-} catch (error) {
-  console.warn('Redis client initialization failed, using mock implementation');
-  
-  // Create a mock Redis implementation for demo purposes
-  const fileStore: Record<string, any> = {};
-  const setStore: Record<string, Set<string>> = {};
-  
-  redis = {
-    hset: async (key: string, field: Record<string, unknown>) => {
-      fileStore[key] = field;
-      return 'OK';
-    },
-    hgetall: async (key: string) => fileStore[key] || null,
-    sadd: async (key: string, ...members: string[]) => {
-      if (!setStore[key]) {
-        setStore[key] = new Set();
-      }
-      members.forEach(member => setStore[key].add(member));
-      return members.length;
-    },
-    smembers: async (key: string) => Array.from(setStore[key] || [])
-  } as unknown as Redis;
-}
+// Create Redis client promise
+// This will be resolved when needed
+const redisPromise = getRedisClient()
 
 /**
  * Maximum file size (10MB)
@@ -81,6 +52,9 @@ async function storeFileMetadata(
   fileAttachment: FileAttachment,
   chatId: string
 ): Promise<void> {
+  // Get Redis client
+  const redis = await redisPromise
+  
   // Convert FileAttachment to a Record<string, unknown>
   const fileMetadata: Record<string, unknown> = {
     id: fileAttachment.id,
@@ -94,7 +68,7 @@ async function storeFileMetadata(
   }
   
   // Store file metadata
-  await redis.hset(`file:${fileAttachment.id}`, fileMetadata)
+  await redis.hmset(`file:${fileAttachment.id}`, fileMetadata)
   
   // Add file ID to chat's file list
   await redis.sadd(`chat:${chatId}:files`, fileAttachment.id)

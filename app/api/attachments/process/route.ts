@@ -1,19 +1,17 @@
+import { getRedisClient } from '@/lib/redis/config'
 import { FileAttachment } from '@/lib/types/file'
 import { createFileProcessor } from '@/lib/utils/file-processor'
-import { Redis } from '@upstash/redis'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Create Redis client
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || ''
-})
+// Create Redis client promise
+const redisPromise = getRedisClient()
 
 /**
  * Get file metadata from Redis
  */
 async function getFileMetadata(fileId: string): Promise<FileAttachment | null> {
   try {
+    const redis = await redisPromise
     const data = await redis.hgetall(`file:${fileId}`) as any
     
     if (!data || !data.id) {
@@ -36,6 +34,9 @@ async function getFileMetadata(fileId: string): Promise<FileAttachment | null> {
  * Update file metadata in Redis
  */
 async function updateFileMetadata(fileAttachment: FileAttachment): Promise<void> {
+  // Get Redis client
+  const redis = await redisPromise
+  
   // Convert FileAttachment to a Record<string, unknown>
   const fileMetadata: Record<string, unknown> = {
     id: fileAttachment.id,
@@ -50,7 +51,7 @@ async function updateFileMetadata(fileAttachment: FileAttachment): Promise<void>
   }
   
   // Store file metadata
-  await redis.hset(`file:${fileAttachment.id}`, fileMetadata)
+  await redis.hmset(`file:${fileAttachment.id}`, fileMetadata)
 }
 
 /**

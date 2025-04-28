@@ -1,26 +1,8 @@
-import { Redis } from '@upstash/redis'
+import { getRedisClient } from '../redis/config'
 import { FileAttachment } from '../types/file'
 
-// Create Redis client or mock implementation
-let redis: Redis
-
-try {
-  redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!
-  })
-} catch (error) {
-  console.warn('Redis client initialization failed in attachment-utils, using mock implementation')
-  
-  // Create a mock Redis implementation for demo purposes
-  const fileStore: Record<string, any> = {}
-  const setStore: Record<string, Set<string>> = {}
-  
-  redis = {
-    hgetall: async (key: string) => fileStore[key] || null,
-    smembers: async (key: string) => Array.from(setStore[key] || [])
-  } as unknown as Redis
-}
+// Create Redis client promise
+const redisPromise = getRedisClient()
 
 /**
  * Retrieves file attachments for a chat
@@ -30,6 +12,9 @@ try {
  */
 export async function getFileAttachmentsForChat(chatId: string): Promise<FileAttachment[]> {
   try {
+    // Get Redis client
+    const redis = await redisPromise
+    
     // Get file IDs for the chat
     const fileIds = await redis.smembers(`chat:${chatId}:files`)
     
@@ -41,7 +26,7 @@ export async function getFileAttachmentsForChat(chatId: string): Promise<FileAtt
     const fileAttachments: FileAttachment[] = []
     
     for (const fileId of fileIds) {
-      const fileData = await redis.hgetall(`file:${fileId}`)
+      const fileData = await (await redisPromise).hgetall(`file:${fileId}`)
       
       if (fileData) {
         // Convert the Redis data to a FileAttachment object

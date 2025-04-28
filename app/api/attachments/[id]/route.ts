@@ -1,20 +1,18 @@
+import { getRedisClient } from '@/lib/redis/config'
 import { FileAttachment } from '@/lib/types/file'
 import { getAbsoluteFilePath } from '@/lib/utils/file-utils'
-import { Redis } from '@upstash/redis'
 import fs from 'fs'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Create Redis client
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || ''
-})
+// Create Redis client promise
+const redisPromise = getRedisClient()
 
 /**
  * Get file metadata from Redis
  */
 async function getFileMetadata(fileId: string): Promise<FileAttachment | null> {
   try {
+    const redis = await redisPromise
     const data = await redis.hgetall(`file:${fileId}`) as any
     
     if (!data || !data.id) {
@@ -147,6 +145,7 @@ export async function DELETE(
     }
     
     // Delete metadata from Redis
+    const redis = await redisPromise
     await redis.del(`file:${fileId}`)
     
     return NextResponse.json({ success: true })

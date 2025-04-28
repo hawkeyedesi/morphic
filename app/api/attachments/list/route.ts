@@ -1,18 +1,16 @@
+import { getRedisClient } from '@/lib/redis/config'
 import { FileAttachment } from '@/lib/types/file'
-import { Redis } from '@upstash/redis'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Create Redis client
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || ''
-})
+// Create Redis client promise
+const redisPromise = getRedisClient()
 
 /**
  * Get file metadata from Redis
  */
 async function getFileMetadata(fileId: string): Promise<FileAttachment | null> {
   try {
+    const redis = await redisPromise
     const data = await redis.hgetall(`file:${fileId}`) as any
     
     if (!data || !data.id) {
@@ -36,6 +34,7 @@ async function getFileMetadata(fileId: string): Promise<FileAttachment | null> {
  */
 async function getChatFileIds(chatId: string): Promise<string[]> {
   try {
+    const redis = await redisPromise
     return await redis.smembers(`chat:${chatId}:files`) as string[]
   } catch (error) {
     console.error(`Error retrieving file IDs for chat ${chatId}:`, error)
