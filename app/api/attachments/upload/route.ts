@@ -57,8 +57,20 @@ async function storeFileMetadata(
   fileAttachment: FileAttachment,
   chatId: string
 ): Promise<void> {
+  // Convert FileAttachment to a Record<string, unknown>
+  const fileMetadata: Record<string, unknown> = {
+    id: fileAttachment.id,
+    originalName: fileAttachment.originalName,
+    storagePath: fileAttachment.storagePath,
+    mimeType: fileAttachment.mimeType,
+    size: fileAttachment.size,
+    uploadedAt: fileAttachment.uploadedAt.toISOString(),
+    processingStatus: fileAttachment.processingStatus,
+    extractedText: fileAttachment.extractedText
+  }
+  
   // Store file metadata
-  await redis.hset(`file:${fileAttachment.id}`, fileAttachment)
+  await redis.hset(`file:${fileAttachment.id}`, fileMetadata)
   
   // Add file ID to chat's file list
   await redis.sadd(`chat:${chatId}:files`, fileAttachment.id)
