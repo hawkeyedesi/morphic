@@ -67,7 +67,11 @@ export class RedisWrapper {
     if (this.client instanceof Redis) {
       return this.client.hmset(key, value)
     } else {
-      return (this.client as RedisClientType).hSet(key, value)
+      // Convert all values to strings
+      const stringValue = Object.fromEntries(
+        Object.entries(value).map(([k, v]) => [k, v === null || v === undefined ? '' : String(v)])
+      )
+      return (this.client as RedisClientType).hSet(key, stringValue)
     }
   }
 
@@ -196,7 +200,7 @@ class LocalPipelineWrapper {
   hmset(key: string, value: Record<string, any>) {
     // Convert all values to strings
     const stringValue = Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, String(v)])
+      Object.entries(value).map(([k, v]) => [k, v === null || v === undefined ? '' : String(v)])
     )
     this.pipeline.hSet(key, stringValue)
     return this
