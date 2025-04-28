@@ -131,14 +131,34 @@ export function FileUpload({
       
       const data = await response.json()
       
+      // Process each uploaded file to extract content
+      const uploadedFiles = data.files.filter((f: any) => f.success)
+      
+      // Process files to extract text content
+      for (const file of uploadedFiles) {
+        console.log(`[DEBUG] Processing file ${file.id}`)
+        try {
+          await fetch('/api/attachments/process', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ fileId: file.id }),
+          })
+          console.log(`[DEBUG] Successfully initiated processing for file ${file.id}`)
+        } catch (error) {
+          console.error(`[ERROR] Failed to process file ${file.id}:`, error)
+        }
+      }
+      
       // Notify success
-      toast.success(`${data.files.filter((f: any) => f.success).length} file(s) uploaded successfully`)
+      toast.success(`${uploadedFiles.length} file(s) uploaded successfully`)
       
       // Clear file list
       setFiles([])
       
       // Call callback with uploaded files
-      onUploadComplete(data.files.filter((f: any) => f.success))
+      onUploadComplete(uploadedFiles)
     } catch (error) {
       console.error('Error uploading files:', error)
       toast.error('Failed to upload files')

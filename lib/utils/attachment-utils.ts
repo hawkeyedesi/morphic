@@ -67,11 +67,22 @@ export async function processFileAttachments(messages: any[], chatId: string): P
   
   try {
     // Get file attachments for the chat
+    console.log(`[DEBUG] Processing attachments for chat ${chatId}`)
     const fileAttachments = await getFileAttachmentsForChat(chatId)
     
     if (!fileAttachments || fileAttachments.length === 0) {
+      console.log(`[DEBUG] No file attachments found for chat ${chatId}`)
       return processedMessages
     }
+    
+    console.log(`[DEBUG] Found ${fileAttachments.length} attachments`)
+    console.log(`[DEBUG] Attachment details:`, fileAttachments.map(f => ({
+      id: f.id,
+      name: f.originalName,
+      status: f.processingStatus,
+      hasText: !!f.extractedText,
+      textLength: f.extractedText ? f.extractedText.length : 0
+    })))
     
     // Create a context message with file content
     const fileContexts = fileAttachments
@@ -81,8 +92,11 @@ export async function processFileAttachments(messages: any[], chatId: string): P
       })
     
     if (fileContexts.length === 0) {
+      console.log(`[DEBUG] No files with extracted text found. Files might not be processed.`)
       return processedMessages
     }
+    
+    console.log(`[DEBUG] Created context from ${fileContexts.length} files with extracted text`)
     
     // Create a context message
     const contextMessage = {
@@ -98,9 +112,11 @@ export async function processFileAttachments(messages: any[], chatId: string): P
     if (lastUserMessageIndex >= 0) {
       // Insert before the last user message
       processedMessages.splice(processedMessages.length - lastUserMessageIndex - 1, 0, contextMessage)
+      console.log(`[DEBUG] Inserted file context before last user message`)
     } else {
       // If no user message found, add at the beginning
       processedMessages.unshift(contextMessage)
+      console.log(`[DEBUG] No user message found, added file context at the beginning`)
     }
   } catch (error) {
     console.error('Error processing file attachments:', error)

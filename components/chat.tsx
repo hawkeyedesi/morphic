@@ -79,7 +79,7 @@ export function Chat({
     e.preventDefault()
     setData(undefined) // reset data to clear tool call
     
-    // Add file attachments information to the message if there are any
+    // Handle file attachments
     if (attachedFiles.length > 0) {
       const fileInfos = attachedFiles.map(file => ({
         id: file.id,
@@ -87,12 +87,20 @@ export function Chat({
         type: file.mimeType
       }))
       
-      // Only prepend if not already starting with this
+      // Add visible file info in message text for the user
       if (!input.startsWith('Files attached:')) {
         setInput(`Files attached: ${JSON.stringify(fileInfos)}\n\n${input}`)
       }
     }
     
+    // Also modify the message in server-side extraction using metadata in our API endpoint
+    // Set chat_with_file_id cookie to tell the API this chat has files
+    document.cookie = `chat_with_files=${id}; path=/;`
+    
+    // This adds a cookie that our API will detect to know when to process files
+    console.log(`[DEBUG] Setting chat_with_files cookie for ${id}`)
+    
+    // Proceed with normal submit
     handleSubmit(e)
     setAttachedFiles([]) // Clear attachments after sending a message
   }

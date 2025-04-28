@@ -29,12 +29,18 @@ export async function POST(req: Request) {
       })
     }
     
-    // Process file attachments in messages
-    const processedMessages = await processFileAttachments(messages, chatId)
-
+    // Get cookies
     const cookieStore = await cookies()
+    
+    // Check if this chat has files via cookie
+    const chatWithFiles = cookieStore.get('chat_with_files')?.value
     const modelJson = cookieStore.get('selectedModel')?.value
     const searchMode = cookieStore.get('search-mode')?.value === 'true'
+
+    console.log(`[DEBUG] Processing chat ${chatId}, cookie value: ${chatWithFiles}`)
+
+    // Process file attachments for the chat
+    const processedMessages = await processFileAttachments(messages, chatId)
 
     let selectedModel = DEFAULT_MODEL
 
