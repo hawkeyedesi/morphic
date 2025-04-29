@@ -17,7 +17,6 @@ services:
     depends_on:
       - redis
       - searxng
-      - unstructured
       - qdrant
 
   redis:
@@ -38,19 +37,18 @@ services:
       - ./searxng-settings.yml:/etc/searxng/settings.yml
       - searxng_data:/data
 
-  unstructured:
-    image: quay.io/unstructured-io/unstructured-api:latest
-    ports:
-      - '8000:8000'
-    command: --port 8000 --host 0.0.0.0
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # Note: unstructured.io image is not available for ARM64 (Apple Silicon)
+  # You can enable this service on x86_64 platforms by uncommenting:
+  #
+  # unstructured:
+  #   image: quay.io/unstructured-io/unstructured-api:latest
+  #   ports:
+  #     - '8000:8000'
+  #   command: --port 8000 --host 0.0.0.0
 
   qdrant:
     image: qdrant/qdrant:latest
+    platform: linux/amd64  # Explicit platform to ensure compatibility
     ports:
       - '6333:6333'
       - '6334:6334'

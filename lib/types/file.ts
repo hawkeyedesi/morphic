@@ -13,6 +13,8 @@ export interface FileAttachment {
   extractedText?: string
   processingStatus?: 'pending' | 'processing' | 'completed' | 'failed'
   error?: string
+  textTruncated?: boolean
+  chunkCount?: number
 }
 
 /**
@@ -27,7 +29,9 @@ export const fileAttachmentSchema = z.object({
   uploadedAt: z.date(),
   extractedText: z.string().optional(),
   processingStatus: z.enum(['pending', 'processing', 'completed', 'failed']).optional(),
-  error: z.string().optional()
+  error: z.string().optional(),
+  textTruncated: z.boolean().optional(),
+  chunkCount: z.number().optional()
 })
 
 /**

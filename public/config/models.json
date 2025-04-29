@@ -65,13 +65,20 @@
       "toolCallType": "native"
     },
     {
+      "id": "qwen3:8b",
+      "name": "Qwen 3 - 8B",
+      "provider": "Ollama",
+      "providerId": "ollama",
+      "enabled": true,
+      "toolCallType": "native"
+    },
+    {
       "id": "gemma3:27b",
       "name": "Gemma 3 - 27B",
       "provider": "Ollama",
       "providerId": "ollama",
       "enabled": true,
-      "toolCallType": "manual",
-      "toolCallModel": "phi4"
+      "toolCallType": "native"
     },
     {
       "id": "<OLLAMA_MODEL_ID>",
