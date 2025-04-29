@@ -1,0 +1,64 @@
+# Podman Compose configuration for the morphic-stack development environment
+# This is a Podman-compatible version of the Docker Compose configuration
+
+name: morphic-stack
+services:
+  morphic:
+    image: ghcr.io/${GITHUB_REPOSITORY:-your-username/morphic}:latest
+    command: bun start -H 0.0.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: .env.local # Load environment variables
+    ports:
+      - '3000:3000' # Maps port 3000 on the host to port 3000 in the container.
+    depends_on:
+      - redis
+      - searxng
+      - qdrant
+
+  redis:
+    image: redis:alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  searxng:
+    image: searxng/searxng
+    ports:
+      - '${SEARXNG_PORT:-8080}:8080'
+    env_file: .env.local # can remove if you want to use env variables or in settings.yml
+    volumes:
+      - ./searxng-limiter.toml:/etc/searxng/limiter.toml:Z
+      - ./searxng-settings.yml:/etc/searxng/settings.yml:Z
+      - searxng_data:/data
+
+  # Unstructured.io for document processing
+  # Using multi-platform compatible image that should work on both x86_64 and ARM64
+  unstructured:
+    image: downloads.unstructured.io/unstructured-io/unstructured:latest
+    ports:
+      - '8000:8000'
+    command: python -m uvicorn unstructured.api:app --host 0.0.0.0 --port 8000
+    volumes:
+      - unstructured_cache:/root/.cache:Z
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    # Remove explicit platform constraint as it may cause issues with Podman
+    ports:
+      - '6333:6333'
+      - '6334:6334'
+    volumes:
+      - qdrant_data:/qdrant/storage:Z
+    environment:
+      - QDRANT_ALLOW_ORIGIN=*
+
+volumes:
+  redis_data:
+  searxng_data:
+  qdrant_data:
+  unstructured_cache:
+  docling_data:  # For future docling integration

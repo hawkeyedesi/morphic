@@ -1,44 +1,54 @@
 #!/bin/bash
 
-# Script to start services for advanced file processing
+# Script to start services for advanced file processing using Podman
+# Converted from Docker to Podman for compatibility
 
-echo "Starting required services for advanced file processing..."
+echo "Starting required services for advanced file processing with Podman..."
 
-# Check for Docker
-if ! command -v docker &> /dev/null; then
-    echo "Docker is not installed. Please install Docker first."
+# Check for Podman
+if ! command -v podman &> /dev/null; then
+    echo "Podman is not installed. Please install Podman first."
     exit 1
 fi
 
-# Check Docker Compose
-if ! docker compose version &> /dev/null; then
-    echo "Docker Compose not found. Please install Docker Compose."
-    exit 1
+# Check Podman Compose
+if ! command -v podman-compose &> /dev/null; then
+    echo "Podman Compose not found. Installing podman-compose..."
+    pip3 install podman-compose 2>/dev/null || pip install podman-compose 2>/dev/null
+    
+    if ! command -v podman-compose &> /dev/null; then
+        echo "Failed to install podman-compose. Please install it manually:"
+        echo "pip install podman-compose"
+        exit 1
+    fi
 fi
 
 # Check if Redis and Qdrant containers are running
 echo "Checking for required services..."
 
+# Use podman-compose.yaml for Podman
+COMPOSE_FILE="podman-compose.yaml"
+
 # Start Redis and Qdrant if not running
-if ! docker ps | grep -q "redis:"; then
+if ! podman ps | grep -q "redis:"; then
     echo "Starting Redis container..."
-    docker compose up -d redis
+    podman-compose -f $COMPOSE_FILE up -d redis
 fi
 
-if ! docker ps | grep -q "qdrant/qdrant:"; then
+if ! podman ps | grep -q "qdrant/qdrant:"; then
     echo "Starting Qdrant container..."
-    docker compose up -d qdrant
+    podman-compose -f $COMPOSE_FILE up -d qdrant
 fi
 
 # Check if on ARM64 (Apple Silicon)
 if [[ $(uname -m) == "arm64" ]]; then
     echo "Detected ARM64 architecture (Apple Silicon)."
-    echo "Attempting to use multi-platform unstructured.io Docker image..."
+    echo "Attempting to use multi-platform unstructured.io Podman image..."
     
     # Try to start unstructured.io container
     if ! grep -q "FORCE_SKIP_UNSTRUCTURED=true" .env.local; then
         echo "Starting unstructured.io container (multi-platform)..."
-        docker compose up -d unstructured
+        podman-compose -f $COMPOSE_FILE up -d unstructured
         
         # Set up Python fallback just in case
         echo "Configuring Python fallback options for ARM64..."
@@ -48,7 +58,8 @@ if [[ $(uname -m) == "arm64" ]]; then
         
         # Remove existing skip if present
         if grep -q "SKIP_UNSTRUCTURED=true" .env.local; then
-            sed -i '' '/SKIP_UNSTRUCTURED=true/d' .env.local || true
+            # Use portable sed syntax that works across macOS and Linux
+            sed -i.bak '/SKIP_UNSTRUCTURED=true/d' .env.local && rm -f .env.local.bak || true
         fi
     else
         echo "Skipping unstructured.io startup as configured by FORCE_SKIP_UNSTRUCTURED."
@@ -64,7 +75,7 @@ else
         echo "Skipping unstructured.io as configured in .env.local."
     else
         echo "Starting unstructured.io container..."
-        docker compose up -d unstructured
+        podman-compose -f $COMPOSE_FILE up -d unstructured
     fi
 fi
 
@@ -86,9 +97,9 @@ if ! grep -q "UNSTRUCTURED_API_URL=" .env.local; then
 fi
 
 echo "Verifying service status..."
-echo "Redis: $(docker ps | grep -q "redis:" && echo "Running" || echo "Not running")"
-echo "Qdrant: $(docker ps | grep -q "qdrant/qdrant:" && echo "Running" || echo "Not running")"
-echo "Unstructured: $(docker ps | grep -q "unstructured:" && echo "Running" || echo "Not running")"
+echo "Redis: $(podman ps | grep -q "redis:" && echo "Running" || echo "Not running")"
+echo "Qdrant: $(podman ps | grep -q "qdrant/qdrant:" && echo "Running" || echo "Not running")"
+echo "Unstructured: $(podman ps | grep -q "unstructured:" && echo "Running" || echo "Not running")"
 
 echo ""
 echo "Now you can start the application with:"
