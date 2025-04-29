@@ -50,12 +50,14 @@ Before:
 - Files were stored with basic text extraction
 - Entire document text was inserted into context window
 - No semantic search capabilities
+- Limited platform compatibility (issues on ARM64/Apple Silicon)
 
 After:
 - Documents are chunked intelligently
 - Text is vectorized and stored in Qdrant
 - Only the most relevant document chunks are included in the context
-- Fallback mechanisms ensure reliability
+- Multi-layered fallback mechanisms ensure reliability
+- Full multi-platform support (x86_64 and ARM64)
 
 ## 🔍 Troubleshooting
 
@@ -71,9 +73,15 @@ If you encounter issues:
    docker compose logs redis qdrant
    ```
 
-3. If on Apple Silicon (ARM64), ensure you have `SKIP_UNSTRUCTURED=true` in your `.env.local`
+3. For Apple Silicon (ARM64) users:
+   - The system now uses a multi-platform unstructured.io Docker image
+   - Multiple fallbacks are automatically configured
+   - You can optionally enable Docling as an alternative processor with `USE_DOCLING=true`
 
-4. For PDF processing issues, try using a different PDF or running without Docker
+4. For PDF processing issues, try running the test script:
+   ```bash
+   ./test-document-processing.js
+   ```
 
 ## 📝 Testing
 
@@ -83,3 +91,27 @@ To verify the implementation:
 2. Ask a specific question about content in the document
 3. The response should include information from the relevant parts of the document
 4. You should see debugging logs showing the semantic search in action
+
+## 🆕 Multi-Platform Enhancements
+
+We've significantly improved cross-platform support with these enhancements:
+
+1. **Multi-layered Document Processing**:
+   - Uses a cascading approach to try multiple processing methods
+   - Automatic fallback to the next method if one fails
+   - Platform-specific optimizations for ARM64/Apple Silicon
+
+2. **Docling Integration**:
+   - Added Docling as an alternative document processor
+   - Compatible with ARM64 architecture
+   - Provides similar capabilities to unstructured.io
+
+3. **Improved Diagnostics**:
+   - Enhanced logging for troubleshooting
+   - Comprehensive test script for validation
+   - Better error recovery and reporting
+
+For detailed information, see:
+- `docs/MULTI_PLATFORM_PROCESSING.md`
+- `docs/DOCLING_INTEGRATION.md`
+- `docs/MULTI_PLATFORM_IMPLEMENTATION_PLAN.md`

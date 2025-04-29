@@ -1,0 +1,11 @@
+[
+  {
+    "id": "chunk-0",
+    "text": "Dummy PDF file\n\n",
+    "type": "NarrativeText",
+    "metadata": {
+      "page_number": 1,
+      "filename": "test-document.pdf"
+    }
+  }
+]

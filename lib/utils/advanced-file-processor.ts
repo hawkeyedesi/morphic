@@ -88,61 +88,241 @@ export class AdvancedFileProcessor implements FileProcessor {
 
   /**
    * Process a document with local unstructured.io
-   * 
+   * Enhanced version with multiple fallback options
+   *
    * @param fileBuffer - File buffer
    * @param fileName - Original file name
    * @returns Array of processed chunks
    */
   private async processDocumentWithUnstructured(fileBuffer: Buffer, fileName: string): Promise<any[]> {
     try {
-      // Check if we're on ARM64 Mac or unstructured.io is not available
-      const useCloudApi = process.env.USE_UNSTRUCTURED_CLOUD_API === 'true';
+      // Get configuration options
       const skipUnstructured = process.env.SKIP_UNSTRUCTURED === 'true';
-
-      if (skipUnstructured) {
+      const forceSkipUnstructured = process.env.FORCE_SKIP_UNSTRUCTURED === 'true';
+      const useCloudApi = process.env.USE_UNSTRUCTURED_CLOUD_API === 'true';
+      const enablePythonFallback = process.env.ENABLE_PYTHON_FALLBACK === 'true';
+      const useDocling = process.env.USE_DOCLING === 'true';
+      
+      console.log(`Processing document with options: skipUnstructured=${skipUnstructured}, forceSkipUnstructured=${forceSkipUnstructured}, useCloudApi=${useCloudApi}, enablePythonFallback=${enablePythonFallback}, useDocling=${useDocling}`);
+      
+      // Skip everything if explicitly configured
+      if (forceSkipUnstructured || skipUnstructured) {
         console.log('Skipping unstructured.io, using fallback document processing');
         return this.fallbackProcessDocument(fileBuffer, fileName);
       }
-
-      // Try to use cloud API if configured
+      
+      // Try methods in order of preference
+      const methods = [];
+      
+      // 1. Cloud API if configured
       if (useCloudApi && process.env.UNSTRUCTURED_API_KEY) {
-        return this.processWithCloudApi(fileBuffer, fileName);
-      }
-
-      // Try local unstructured.io
-      try {
-        // Create form data for the request
-        const formData = new FormData();
-        const blob = new Blob([fileBuffer], { type: 'application/octet-stream' });
-        formData.append('files', blob, fileName);
-        
-        // Add parameters
-        formData.append('strategy', 'auto');
-        formData.append('hi_res_pdf', 'true');
-        formData.append('chunking_strategy', JSON.stringify({
-          chunk_size: 1000,
-          chunk_overlap: 200
-        }));
-        
-        // Make the request to local unstructured.io
-        const response = await axios.post(this.unstructuredApiUrl, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-          timeout: 5000 // 5 second timeout to quickly detect if service is unavailable
+        methods.push({
+          name: 'Cloud unstructured.io API',
+          method: () => this.processWithCloudApi(fileBuffer, fileName)
         });
-        
-        return response.data.elements || [];
-      } catch (localError) {
-        const errorMessage = localError instanceof Error ? localError.message : 'Unknown error';
-        console.warn('Local unstructured.io unavailable, using fallback:', errorMessage);
-        return this.fallbackProcessDocument(fileBuffer, fileName);
       }
+      
+      // 2. Docker container API
+      methods.push({
+        name: 'Local unstructured.io Docker API',
+        method: async () => {
+          // Create form data for the request
+          const formData = new FormData();
+          const blob = new Blob([fileBuffer], { type: 'application/octet-stream' });
+          formData.append('files', blob, fileName);
+          
+          // Add parameters
+          formData.append('strategy', 'auto');
+          formData.append('hi_res_pdf', 'true');
+          
+          try {
+            formData.append('chunking_strategy', JSON.stringify({
+              chunk_size: 1000,
+              chunk_overlap: 200
+            }));
+          } catch (e) {
+            formData.append('chunk_size', '1000');
+            formData.append('chunk_overlap', '200');
+          }
+          
+          // Make the request to local unstructured.io
+          const response = await axios.post(this.unstructuredApiUrl, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            },
+            timeout: 10000 // 10 second timeout
+          });
+          
+          if (response.data && response.data.elements) {
+            return response.data.elements;
+          } else if (Array.isArray(response.data)) {
+            return response.data;
+          }
+          
+          throw new Error('Invalid response format from unstructured.io API');
+        }
+      });
+      
+      // 3. Python wrapper if enabled
+      if (enablePythonFallback) {
+        methods.push({
+          name: 'Python unstructured.io wrapper',
+          method: () => this.processDocumentWithPythonUnstructured(fileBuffer, fileName)
+        });
+      }
+      
+      // 4. Docling if configured
+      if (useDocling) {
+        methods.push({
+          name: 'Docling processor',
+          method: () => this.processDocumentWithDocling(fileBuffer, fileName)
+        });
+      }
+      
+      // Try each method in sequence
+      let lastError = null;
+      for (const { name, method } of methods) {
+        try {
+          console.log(`Trying document processing with: ${name}`);
+          const result = await method();
+          console.log(`Successfully processed document with: ${name}`);
+          return result;
+        } catch (error) {
+          console.warn(`Failed to process with ${name}:`, error);
+          lastError = error;
+        }
+      }
+      
+      // If all methods fail, log the last error and use basic fallback
+      console.error('All processing methods failed. Last error:', lastError);
+      console.log('Using basic fallback document processing');
+      return this.fallbackProcessDocument(fileBuffer, fileName);
     } catch (error) {
-      console.error('Error processing document:', error);
+      console.error('Error in processDocumentWithUnstructured:', error);
       // Use fallback instead of throwing
       console.log('Using fallback document processing after error');
       return this.fallbackProcessDocument(fileBuffer, fileName);
+    }
+  }
+
+  /**
+   * Process document with unstructured.io using Python wrapper
+   * This serves as a fallback when Docker container fails on ARM64
+   */
+  private async processDocumentWithPythonUnstructured(fileBuffer: Buffer, fileName: string): Promise<any[]> {
+    try {
+      console.log(`Attempting to use unstructured.io via Python wrapper: ${fileName}`);
+      
+      if (process.env.ENABLE_PYTHON_FALLBACK !== 'true') {
+        console.log('Python fallback not enabled. Skipping.');
+        throw new Error('Python fallback not enabled');
+      }
+      
+      // Create a temporary file
+      const os = require('os');
+      const path = require('path');
+      const tempDir = os.tmpdir();
+      const tempFilePath = path.join(tempDir, fileName);
+      await fs.promises.writeFile(tempFilePath, fileBuffer);
+      
+      try {
+        // Execute Python script to run unstructured.io
+        const { execSync } = require('child_process');
+        const result = execSync(
+          `python -c "
+          import json
+          import sys
+          
+          try:
+              from unstructured.partition.auto import partition
+              from unstructured.chunking.title import chunk_by_title
+              
+              elements = partition('${tempFilePath}')
+              chunks = chunk_by_title(elements, combine_text_under_n_chars=1000, overlap=200)
+              
+              # Convert to unstructured.io API response format
+              result = [{'id': f'chunk-{i}', 'text': c.text, 'type': c.category,
+                        'metadata': {'page_number': getattr(c, 'metadata', {}).get('page_number', 1)}}
+                       for i, c in enumerate(chunks)]
+              
+              print(json.dumps(result))
+          except Exception as e:
+              print(json.dumps({'error': str(e)}), file=sys.stderr)
+              sys.exit(1)
+          "`,
+          { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 }
+        );
+        
+        // Parse result
+        const parsedResult = JSON.parse(result);
+        if (Array.isArray(parsedResult)) {
+          console.log(`Successfully processed with Python: ${parsedResult.length} chunks`);
+          return parsedResult;
+        } else if (parsedResult.error) {
+          throw new Error(`Python processing error: ${parsedResult.error}`);
+        }
+        
+        throw new Error('Invalid response format from Python processing');
+      } catch (pythonError) {
+        console.error('Error using Python unstructured.io:', pythonError);
+        throw pythonError;
+      } finally {
+        // Clean up temp file
+        try {
+          await fs.promises.unlink(tempFilePath);
+        } catch (e) {
+          console.error('Error cleaning up temp file:', e);
+        }
+      }
+    } catch (error) {
+      console.error('Python unstructured.io processing failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process document using docling (future implementation)
+   * This serves as an alternative document processor option
+   */
+  private async processDocumentWithDocling(fileBuffer: Buffer, fileName: string): Promise<any[]> {
+    try {
+      console.log(`Attempting to use docling for document processing: ${fileName}`);
+      
+      if (process.env.USE_DOCLING !== 'true') {
+        console.log('Docling processing not enabled. Skipping.');
+        throw new Error('Docling processing not enabled');
+      }
+      
+      // This is a placeholder for actual implementation
+      // Refer to docs/DOCLING_INTEGRATION.md for implementation details
+      
+      // Method 1: If using Docling Node.js library
+      try {
+        // This will fail if docling is not installed - that's expected for now
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { processDocument } = require('docling');
+        const result = await processDocument(fileBuffer, {
+          filename: fileName,
+          chunkSize: 1000,
+          chunkOverlap: 200
+        });
+        
+        // Convert Docling result to unstructured.io format for compatibility
+        return result.chunks.map((chunk: any, index: number) => ({
+          id: `docling-chunk-${index}`,
+          text: chunk.text,
+          type: chunk.type || 'NarrativeText',
+          metadata: {
+            page_number: chunk.pageNumber || 1
+          }
+        }));
+      } catch (nodeJsError) {
+        console.error('Error using Docling Node.js library:', nodeJsError);
+        throw new Error('Docling Node.js library not available. Install with npm install docling');
+      }
+    } catch (error) {
+      console.error('Docling processing failed:', error);
+      throw error;
     }
   }
 
