@@ -1,9 +1,9 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 import { getDocumentService } from '@/lib/services/simple-document-service'
+import { getAdvancedDocumentService } from '@/lib/services/advanced-document-service'
 
 export const documentSearchTool = (chatId: string) => tool({
-  name: 'searchDocuments',
   description: 'Search through uploaded documents for relevant information',
   parameters: z.object({
     query: z.string().describe('The search query to find relevant document content'),
@@ -11,8 +11,26 @@ export const documentSearchTool = (chatId: string) => tool({
   }),
   execute: async ({ query, limit }) => {
     try {
-      const documentService = await getDocumentService()
-      const results = await documentService.searchDocuments(query, chatId, limit)
+      // Check if we're in a browser environment and get processing mode
+      let service: any
+      if (typeof window !== 'undefined') {
+        const processingMode = localStorage.getItem(`processing-mode-${chatId}`)
+        if (processingMode === 'cloud') {
+          const config = {
+            mode: 'cloud' as const,
+            provider: 'openrouter' as const,
+            apiKey: process.env.OPENROUTER_API_KEY
+          }
+          service = await getAdvancedDocumentService(config)
+        } else {
+          service = await getDocumentService()
+        }
+      } else {
+        // Server-side: default to simple service
+        service = await getDocumentService()
+      }
+      
+      const results = await service.searchDocuments(query, chatId, limit)
       
       if (results.length === 0) {
         return {
@@ -22,7 +40,7 @@ export const documentSearchTool = (chatId: string) => tool({
         }
       }
       
-      const formattedResults = results.map(r => ({
+      const formattedResults = results.map((r: any) => ({
         documentName: r.document_name,
         content: r.content,
         pageNumber: r.metadata.page_number,

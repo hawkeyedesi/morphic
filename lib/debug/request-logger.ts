@@ -2,7 +2,7 @@
 if (process.env.NODE_ENV === 'development' && typeof window === 'undefined') {
     const originalFetch = globalThis.fetch;
   
-    globalThis.fetch = async (input: RequestInfo, init?: RequestInit) => {
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const res = await originalFetch(input, init);
   
       // log only the RITS calls to avoid noise

@@ -1,10 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Upload, File, X, AlertCircle } from 'lucide-react'
+import { Upload, File, X, AlertCircle, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
 interface UploadedDocument {
@@ -24,6 +27,9 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedDocument[]>([])
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [useAdvancedProcessing, setUseAdvancedProcessing] = useState(false)
+  const [chunkingStrategy, setChunkingStrategy] = useState<string>('auto')
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -67,6 +73,11 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('chatId', chatId)
+      
+      if (useAdvancedProcessing) {
+        formData.append('processingMode', 'advanced')
+        formData.append('chunkingStrategy', chunkingStrategy)
+      }
       
       const response = await fetch('/api/documents', {
         method: 'POST',
@@ -118,8 +129,20 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
 
   // Load documents on mount
   useEffect(() => {
-    fetchDocuments()
-  }, [])
+    const loadDocuments = async () => {
+      try {
+        const response = await fetch(`/api/documents?chatId=${chatId}`)
+        if (response.ok) {
+          const { documents } = await response.json()
+          setUploadedFiles(documents)
+        }
+      } catch (err) {
+        console.error('Failed to fetch documents:', err)
+      }
+    }
+    
+    loadDocuments()
+  }, [chatId])
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B'
@@ -161,6 +184,61 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
             {isUploading ? 'Uploading...' : 'Select File'}
           </label>
         </Button>
+      </Card>
+
+      {/* Advanced Options */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <Settings2 className="h-4 w-4" />
+            <h3 className="text-sm font-medium">Processing Options</h3>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? 'Hide' : 'Show'}
+          </Button>
+        </div>
+        
+        {showAdvanced && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="advanced-processing" className="text-sm">
+                Use Advanced Processing
+              </Label>
+              <Switch
+                id="advanced-processing"
+                checked={useAdvancedProcessing}
+                onCheckedChange={setUseAdvancedProcessing}
+              />
+            </div>
+            
+            {useAdvancedProcessing && (
+              <div className="space-y-2">
+                <Label htmlFor="chunking-strategy" className="text-sm">
+                  Chunking Strategy
+                </Label>
+                <Select value={chunkingStrategy} onValueChange={setChunkingStrategy}>
+                  <SelectTrigger id="chunking-strategy">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto-detect</SelectItem>
+                    <SelectItem value="semantic">Semantic</SelectItem>
+                    <SelectItem value="fixed">Fixed Size</SelectItem>
+                    <SelectItem value="markdown">Markdown-aware</SelectItem>
+                    <SelectItem value="code">Code-aware</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Auto-detect will choose the best strategy based on your document type
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* Error Alert */}

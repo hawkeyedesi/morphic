@@ -60,17 +60,22 @@ export function researcher({
     const videoSearchTool = createVideoSearchTool(model)
     const askQuestionTool = createQuestionTool(model)
 
+    const tools: any = {
+      search: searchTool,
+      retrieve: retrieveTool,
+      videoSearch: videoSearchTool,
+      ask_question: askQuestionTool
+    }
+    
+    if (chatId) {
+      tools.searchDocuments = documentSearchTool(chatId)
+    }
+
     return {
       model: getModel(model),
       system: `${SYSTEM_PROMPT}\nCurrent date and time: ${currentDate}`,
       messages,
-      tools: {
-        searchDocuments: chatId ? documentSearchTool(chatId) : undefined,
-        search: searchTool,
-        retrieve: retrieveTool,
-        videoSearch: videoSearchTool,
-        ask_question: askQuestionTool
-      },
+      tools,
       experimental_activeTools: searchMode
         ? [
             ...(chatId ? ['searchDocuments'] : []),

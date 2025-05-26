@@ -332,7 +332,6 @@ let documentServiceInstance: SimpleDocumentService | null = null
 export const getDocumentService = async () => {
   if (!documentServiceInstance) {
     documentServiceInstance = new SimpleDocumentService()
-    await documentServiceInstance.initialize()
   }
   return documentServiceInstance
 }

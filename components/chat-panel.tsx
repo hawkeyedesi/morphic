@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from './ui/dialog'
 import { DocumentUpload } from './document-upload'
+import { ProcessingModeToggle } from './processing-mode-toggle'
 
 interface ChatPanelProps {
   input: string
@@ -74,9 +75,11 @@ export function ChatPanel({
   }
 
   const handleNewChat = () => {
+    console.log('Creating new chat...')
     setMessages([])
     closeArtifact()
     router.push('/')
+    router.refresh()
   }
 
   const isToolInvocationInProgress = () => {
@@ -193,6 +196,7 @@ export function ChatPanel({
             <div className="flex items-center gap-2">
               <ModelSelector models={models || []} />
               <SearchModeToggle />
+              {chatId && <ProcessingModeToggle chatId={chatId} />}
               <Dialog>
                 <DialogTrigger asChild>
                   <Button
@@ -209,7 +213,13 @@ export function ChatPanel({
                   <DialogHeader>
                     <DialogTitle>Upload Documents</DialogTitle>
                   </DialogHeader>
-                  {chatId && <DocumentUpload chatId={chatId} />}
+                  {chatId ? (
+                    <DocumentUpload chatId={chatId} />
+                  ) : (
+                    <div className="p-4 text-center text-muted-foreground">
+                      Start a conversation to upload documents
+                    </div>
+                  )}
                 </DialogContent>
               </Dialog>
             </div>
