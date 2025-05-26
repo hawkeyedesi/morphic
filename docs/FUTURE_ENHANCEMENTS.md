@@ -4,6 +4,32 @@ This document tracks potential future improvements and features for the Morphic 
 
 ## 🚀 Planned Enhancements
 
+### Advanced Document Processing
+
+- [ ] **Smart Chunking Strategies**
+  - Semantic chunking (respect paragraphs/sentences)
+  - Document-aware chunking (markdown headers, code blocks)
+  - Recursive chunking for optimal sizes
+  - Language-specific chunking for code files
+
+- [ ] **Enhanced Embeddings**
+  - Support for larger embedding models (768/1024 dims)
+  - Hybrid search (dense + sparse embeddings)
+  - Multi-lingual embedding support
+  - Custom fine-tuned embeddings
+
+- [ ] **Flexible Processing Backend**
+  - Toggle between local (Ollama) and cloud (OpenRouter)
+  - Per-chat processing preferences
+  - Automatic fallback when local unavailable
+  - Cost tracking for cloud processing
+
+- [ ] **Document Intelligence**
+  - Table extraction from PDFs
+  - Form field recognition
+  - Metadata extraction (author, date, etc.)
+  - Cross-reference detection
+
 ### Document Management
 
 - [ ] **Project-based Document Sharing**

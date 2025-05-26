@@ -10,7 +10,20 @@
       "Bash(bun add:*)",
       "Bash(npm run build:*)",
       "Bash(bun remove:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(npm run dev:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(rm:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm --prefix \"/Users/kashy/Library/Mobile Documents/com~apple~CloudDocs/Research/morphic\" install pdf-parse)",
+      "Bash(npm --prefix \"/Users/kashy/Library/Mobile Documents/com~apple~CloudDocs/Research/morphic\" install pdf-parse --legacy-peer-deps)",
+      "Bash(npm --prefix \"/Users/kashy/Library/Mobile Documents/com~apple~CloudDocs/Research/morphic\" run build)",
+      "Bash(npm:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
