@@ -59,8 +59,8 @@ export function ProcessingModeToggle({ chatId, onModeChange }: ProcessingModeTog
             </p>
             <p className="text-xs text-muted-foreground">
               {isCloudMode 
-                ? 'Using OpenRouter for better accuracy'
-                : 'Using Ollama for privacy'}
+                ? 'Using OpenAI for higher quality embeddings'
+                : 'Using local model for privacy'}
             </p>
           </TooltipContent>
         </Tooltip>

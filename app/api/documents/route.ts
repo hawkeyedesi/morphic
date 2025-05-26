@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({ document })
     } else {
-      console.log('📦 Using simple document service (local embeddings)')
-      // Use simple service for basic uploads
+      console.log('📦 Using simple document service')
+      // Simple service always uses local embeddings
       const documentService = await getDocumentService()
       const document = await documentService.uploadDocument(file, userId, chatId)
       

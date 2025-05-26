@@ -38,16 +38,71 @@ export class AdvancedDocumentService {
   }
   
   private async getEmbeddings(texts: string[]): Promise<number[][]> {
-    // Note: OpenRouter doesn't support embeddings API, so we always use local embeddings
-    // The cloud/local toggle only affects future features like LLM-based processing
-    
-    if (this.config.mode === 'cloud' && this.config.provider === 'openrouter') {
-      console.log('☁️  Cloud mode enabled (Note: embeddings still run locally)')
-      console.log('ℹ️  OpenRouter doesn't support embeddings, using local Xenova model')
+    if (this.config.mode === 'cloud') {
+      console.log('☁️  Using cloud embeddings (OpenAI)')
+      
+      // Use OpenAI API for embeddings
+      const apiKey = process.env.OPENAI_API_KEY
+      if (!apiKey) {
+        console.warn('⚠️  OpenAI API key not found, falling back to local embeddings')
+        return this.getLocalEmbeddings(texts)
+      }
+      
+      try {
+        console.log('🔑 Using OpenAI text-embedding-3-small model')
+        
+        // OpenAI has a limit of 8191 tokens per request, so we batch if needed
+        const batchSize = 50 // Conservative batch size
+        const allEmbeddings: number[][] = []
+        
+        for (let i = 0; i < texts.length; i += batchSize) {
+          const batch = texts.slice(i, i + batchSize)
+          console.log(`📦 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(texts.length / batchSize)}`)
+          
+          const response = await fetch('https://api.openai.com/v1/embeddings', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'text-embedding-3-small',
+              input: batch
+            })
+          })
+          
+          if (!response.ok) {
+            const error = await response.text()
+            console.error('❌ OpenAI API error:', error)
+            console.log('⚠️  Falling back to local embeddings')
+            return this.getLocalEmbeddings(texts)
+          }
+          
+          const data = await response.json()
+          const batchEmbeddings = data.data.map((item: any) => item.embedding)
+          allEmbeddings.push(...batchEmbeddings)
+          
+          // Add a small delay between batches to avoid rate limits
+          if (i + batchSize < texts.length) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+          }
+        }
+        
+        console.log('✅ Cloud embeddings generated for', texts.length, 'chunks (1536 dimensions)')
+        return allEmbeddings
+      } catch (error) {
+        console.error('❌ Error calling OpenAI API:', error)
+        console.log('⚠️  Falling back to local embeddings')
+        return this.getLocalEmbeddings(texts)
+      }
+    } else {
+      return this.getLocalEmbeddings(texts)
     }
-    
+  }
+  
+  private async getLocalEmbeddings(texts: string[]): Promise<number[][]> {
     console.log('🏠 Using local embeddings (Xenova/all-MiniLM-L6-v2)')
-    // Always use local Xenova embeddings
+    // Use local Xenova embeddings
     if (!this.embedModel) {
       console.log('⏳ Loading local embedding model...')
       this.embedModel = await pipeline(
@@ -62,7 +117,7 @@ export class AdvancedDocumentService {
       const output = await this.embedModel(text, { pooling: 'mean', normalize: true })
       embeddings.push(Array.from(output.data) as number[])
     }
-    console.log('✅ Local embeddings generated for', texts.length, 'chunks')
+    console.log('✅ Local embeddings generated for', texts.length, 'chunks (384 dimensions)')
     return embeddings
   }
   
