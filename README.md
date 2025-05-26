@@ -2,7 +2,7 @@
 
 An AI-powered search engine with a generative UI.
 
-![capture](/public/screenshot-2025-01-31.png)
+![capture](/public/screenshot-2025-05-04.png)
 
 ## 🗂️ Overview
 
@@ -11,10 +11,11 @@ An AI-powered search engine with a generative UI.
 - 🚀 [Quickstart](#-quickstart)
 - 🌐 [Deploy](#-deploy)
 - 🔎 [Search Engine](#-search-engine)
-- ✅ [Verified models](#-verified-models)
-- ⚡ [AI SDK Implementation](#-ai-sdk-implementation)
-- 📦 [Open Source vs Cloud Offering](#-open-source-vs-cloud-offering)
+- 💙 [Sponsors](#-sponsors)
 - 👥 [Contributing](#-contributing)
+- 📄 [License](#-license)
+
+📝 Explore AI-generated documentation on [DeepWiki](https://deepwiki.com/miurla/morphic)
 
 ## 🛠 Features
 
@@ -25,6 +26,12 @@ An AI-powered search engine with a generative UI.
 - Multiple search providers support (Tavily, SearXNG, Exa)
 - Model selection from UI (switch between available AI models)
   - Reasoning models with visible thought process
+
+### Authentication
+
+- User authentication powered by [Supabase Auth](https://supabase.com/docs/guides/auth)
+- Supports Email/Password sign-up and sign-in
+- Supports Social Login with Google
 
 ### Chat & History
 
@@ -73,6 +80,10 @@ Models are configured in `public/config/models.json`. Each model requires its co
 - [TypeScript](https://www.typescriptlang.org/) - Type safety
 - [Vercel AI SDK](https://sdk.vercel.ai/docs) - Text streaming / Generative UI
 
+### Authentication & Authorization (Updated Category)
+
+- [Supabase](https://supabase.com/) - User authentication and backend services
+
 ### AI & Search
 
 - [OpenAI](https://openai.com/) - Default AI provider (Optional: Google AI, Anthropic, Groq, Ollama, Azure OpenAI, DeepSeek, Fireworks)
@@ -119,7 +130,7 @@ cp .env.local.example .env.local
 Fill in the required environment variables in `.env.local`:
 
 ```bash
-# Required
+# Required for Core Functionality
 OPENAI_API_KEY=     # Get from https://platform.openai.com/api-keys
 TAVILY_API_KEY=     # Get from https://app.tavily.com/home
 ```
@@ -221,42 +232,13 @@ If you want to use Morphic as a search engine in your browser, follow these step
 
 This will allow you to use Morphic as your default search engine in the browser.
 
-## ✅ Verified models
+## 💙 Sponsors
 
-### List of models applicable to all
+This project is proudly supported by:
 
-- OpenAI
-  - gpt-4.1
-  - gpt-4.1-mini
-  - gpt-4.1-nano
-  - o3-mini
-  - gpt-4o
-  - gpt-4o-mini
-  - gpt-4-turbo
-  - gpt-3.5-turbo
-- Google
-  - Gemini 2.5 Pro (Experimental)
-  - Gemini 2.0 Flash Thinking (Experimental)
-  - Gemini 2.0 Flash
-- Anthropic
-  - Claude 3.5 Sonnet
-  - Claude 3.5 Hike
-- Ollama
-  - qwen2.5
-  - deepseek-r1
-- Groq
-  - deepseek-r1-distill-llama-70b
-  - Llama 4 Maverick 17B
-- Fireworks
-  - DeepSeek R1
-  - Llama 4 Maverick
-- DeepSeek
-  - DeepSeek V3
-  - DeepSeek R1
-- xAI
-  - grok-2
-  - grok-2-vision
-  - grok-3-beta
+<a href="https://vercel.com/oss">
+  <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
+</a>
 
 ## 👥 Contributing
 
@@ -268,3 +250,7 @@ Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
 - How to submit pull requests
 - Commit message conventions
 - Development setup
+
+## 📄 License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
