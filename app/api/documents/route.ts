@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       const advancedService = await getAdvancedDocumentService(config)
       const document = await advancedService.uploadDocument(file, userId, chatId)
       
+      console.log('📄 Document upload result:', document)
       return NextResponse.json({ document })
     } else {
       console.log('📦 Using simple document service')

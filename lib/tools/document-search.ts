@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { getDocumentService } from '@/lib/services/simple-document-service'
 import { getAdvancedDocumentService } from '@/lib/services/advanced-document-service'
 
-export const documentSearchTool = (chatId: string) => tool({
+export const documentSearchTool = (chatId: string, processingMode?: 'local' | 'cloud') => tool({
   description: 'Search through uploaded documents for relevant information',
   parameters: z.object({
     query: z.string().describe('The search query to find relevant document content'),
@@ -11,11 +11,22 @@ export const documentSearchTool = (chatId: string) => tool({
   }),
   execute: async ({ query, limit }) => {
     try {
-      // Check if we're in a browser environment and get processing mode
+      console.log('🔍 Document search:', { query, chatId, processingMode })
+      
+      // Use the provided processing mode or check for advanced documents
       let service: any
-      if (typeof window !== 'undefined') {
-        const processingMode = localStorage.getItem(`processing-mode-${chatId}`)
-        if (processingMode === 'cloud') {
+      
+      // Check if there are any advanced documents (with metadata files)
+      const fs = require('fs').promises
+      const path = require('path')
+      const storagePath = path.join(process.cwd(), 'uploads', 'chats', chatId)
+      
+      try {
+        const files = await fs.readdir(storagePath)
+        const hasAdvancedDocs = files.some((f: string) => f.endsWith('_metadata.json'))
+        
+        if (hasAdvancedDocs || processingMode === 'cloud') {
+          console.log('🚀 Using advanced document service for search')
           const config = {
             mode: 'cloud' as const,
             provider: 'openrouter' as const,
@@ -23,10 +34,12 @@ export const documentSearchTool = (chatId: string) => tool({
           }
           service = await getAdvancedDocumentService(config)
         } else {
+          console.log('📦 Using simple document service for search')
           service = await getDocumentService()
         }
-      } else {
-        // Server-side: default to simple service
+      } catch (error) {
+        // No documents directory, use simple service
+        console.log('📦 No documents found, using simple service')
         service = await getDocumentService()
       }
       

@@ -377,7 +377,7 @@ export class AdvancedDocumentService {
   }
   
   async searchDocuments(query: string, chatId: string, limit = 5) {
-    const queryEmbedding = (await this.getEmbeddings([query]))[0]
+    console.log('🔍 Searching documents in chat:', chatId)
     
     // Load all documents for this chat
     const storagePath = join(process.cwd(), 'uploads', 'chats', chatId)
@@ -385,6 +385,36 @@ export class AdvancedDocumentService {
     
     try {
       const files = await fs.readdir(storagePath)
+      
+      // First, check what embedding dimensions were used
+      let embeddingDims = 0
+      for (const file of files) {
+        if (!file.endsWith('_metadata.json')) continue
+        const metadataPath = join(storagePath, file)
+        try {
+          const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'))
+          if (metadata.embedding_dims) {
+            embeddingDims = metadata.embedding_dims
+            console.log(`📏 Found documents with ${embeddingDims} dimensions`)
+            break
+          }
+        } catch (error) {
+          continue
+        }
+      }
+      
+      // Adjust config based on detected dimensions
+      if (embeddingDims === 1536) {
+        console.log('☁️  Detected cloud embeddings, using OpenAI for query')
+        this.config.mode = 'cloud'
+      } else if (embeddingDims === 384) {
+        console.log('🏠 Detected local embeddings, using Xenova for query')
+        this.config.mode = 'local'
+      }
+      
+      // Generate query embedding with the same model
+      const queryEmbedding = (await this.getEmbeddings([query]))[0]
+      console.log(`🔍 Query embedding generated (${queryEmbedding.length} dims)`)
       
       for (const file of files) {
         if (!file.endsWith('_metadata.json')) continue
@@ -401,13 +431,15 @@ export class AdvancedDocumentService {
           for (const chunk of chunks) {
             const similarity = this.cosineSimilarity(queryEmbedding, chunk.embedding)
             
-            allResults.push({
-              document_id: metadata.id,
-              document_name: metadata.filename,
-              content: chunk.content,
-              similarity,
-              metadata: chunk.metadata
-            })
+            if (similarity > 0) {  // Only add if similarity is valid
+              allResults.push({
+                document_id: metadata.id,
+                document_name: metadata.filename,
+                content: chunk.content,
+                similarity,
+                metadata: chunk.metadata
+              })
+            }
           }
         } catch (error) {
           console.error(`Error loading document ${docId}:`, error)
