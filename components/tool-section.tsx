@@ -5,6 +5,10 @@ import { QuestionConfirmation } from './question-confirmation'
 import RetrieveSection from './retrieve-section'
 import { SearchSection } from './search-section'
 import { VideoSearchSection } from './video-search-section'
+import { DocumentSection } from './document-section'
+import { Card } from './ui/card'
+import { ToolBadge } from './tool-badge'
+import { Spinner } from './ui/spinner'
 
 interface ToolSectionProps {
   tool: ToolInvocation
@@ -77,6 +81,26 @@ export function ToolSection({
           tool={tool}
           isOpen={isOpen}
           onOpenChange={onOpenChange}
+        />
+      )
+    case 'searchDocuments':
+      // Handle in-progress state
+      if (tool.state === 'call') {
+        return (
+          <Card className="p-4 mb-2">
+            <div className="flex items-center gap-2">
+              <ToolBadge type="docs">Searching documents...</ToolBadge>
+              <Spinner className="size-4" />
+            </div>
+          </Card>
+        )
+      }
+      
+      // Handle result state
+      return (
+        <DocumentSection
+          result={tool.state === 'result' ? tool.result : null}
+          index={0}
         />
       )
     default:

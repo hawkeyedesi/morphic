@@ -15,7 +15,8 @@ const nextConfig = {
         pathname: '/a/**' // Google user content often follows this pattern
       }
     ]
-  }
+  },
+  serverExternalPackages: ['@xenova/transformers', 'pdf-parse', 'mammoth']
 }
 
 export default nextConfig
