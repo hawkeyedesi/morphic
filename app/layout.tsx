@@ -1,8 +1,12 @@
-import Footer from '@/components/footer'
+import AppSidebar from '@/components/app-sidebar'
+import ArtifactRoot from '@/components/artifact/artifact-root'
 import Header from '@/components/header'
 import { ThemeProvider } from '@/components/theme-provider'
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
+import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
+import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter as FontSans } from 'next/font/google'
 import './globals.css'
@@ -39,11 +43,23 @@ export const viewport: Viewport = {
   maximumScale: 1
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  let user = null
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (supabaseUrl && supabaseAnonKey) {
+    const supabase = await createClient()
+    const {
+      data: { user: supabaseUser }
+    } = await supabase.auth.getUser()
+    user = supabaseUser
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -58,12 +74,17 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex flex-col flex-1">
-            <Header />
-            <main className="flex flex-col flex-1 min-h-0">{children}</main>
-            <Footer />
-          </div>
+          <SidebarProvider defaultOpen>
+            <AppSidebar />
+            <div className="flex flex-col flex-1">
+              <Header user={user} />
+              <main className="flex flex-1 min-h-0">
+                <ArtifactRoot>{children}</ArtifactRoot>
+              </main>
+            </div>
+          </SidebarProvider>
           <Toaster />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
