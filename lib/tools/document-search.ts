@@ -2,7 +2,7 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import { getDocumentService } from '@/lib/services/simple-document-service'
 
-export const documentSearchTool = tool({
+export const documentSearchTool = (chatId: string) => tool({
   name: 'searchDocuments',
   description: 'Search through uploaded documents for relevant information',
   parameters: z.object({
@@ -12,7 +12,7 @@ export const documentSearchTool = tool({
   execute: async ({ query, limit }) => {
     try {
       const documentService = await getDocumentService()
-      const results = await documentService.searchDocuments(query, limit)
+      const results = await documentService.searchDocuments(query, chatId, limit)
       
       if (results.length === 0) {
         return {

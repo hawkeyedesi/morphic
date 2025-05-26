@@ -15,7 +15,11 @@ interface UploadedDocument {
   created_at: string
 }
 
-export function DocumentUpload() {
+interface DocumentUploadProps {
+  chatId: string
+}
+
+export function DocumentUpload({ chatId }: DocumentUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedDocument[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -62,6 +66,7 @@ export function DocumentUpload() {
     try {
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('chatId', chatId)
       
       const response = await fetch('/api/documents', {
         method: 'POST',
@@ -87,7 +92,7 @@ export function DocumentUpload() {
 
   const fetchDocuments = async () => {
     try {
-      const response = await fetch('/api/documents')
+      const response = await fetch(`/api/documents?chatId=${chatId}`)
       if (response.ok) {
         const { documents } = await response.json()
         setUploadedFiles(documents)
@@ -99,7 +104,7 @@ export function DocumentUpload() {
 
   const deleteDocument = async (documentId: string) => {
     try {
-      const response = await fetch(`/api/documents/${documentId}`, {
+      const response = await fetch(`/api/documents/${documentId}?chatId=${chatId}`, {
         method: 'DELETE'
       })
       

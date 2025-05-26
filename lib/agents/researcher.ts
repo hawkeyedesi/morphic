@@ -44,11 +44,13 @@ type ResearcherReturn = Parameters<typeof streamText>[0]
 export function researcher({
   messages,
   model,
-  searchMode
+  searchMode,
+  chatId
 }: {
   messages: CoreMessage[]
   model: string
   searchMode: boolean
+  chatId?: string
 }): ResearcherReturn {
   try {
     const currentDate = new Date().toLocaleString()
@@ -63,14 +65,20 @@ export function researcher({
       system: `${SYSTEM_PROMPT}\nCurrent date and time: ${currentDate}`,
       messages,
       tools: {
-        searchDocuments: documentSearchTool,
+        searchDocuments: chatId ? documentSearchTool(chatId) : undefined,
         search: searchTool,
         retrieve: retrieveTool,
         videoSearch: videoSearchTool,
         ask_question: askQuestionTool
       },
       experimental_activeTools: searchMode
-        ? ['searchDocuments', 'search', 'retrieve', 'videoSearch', 'ask_question']
+        ? [
+            ...(chatId ? ['searchDocuments'] : []),
+            'search',
+            'retrieve',
+            'videoSearch',
+            'ask_question'
+          ]
         : [],
       maxSteps: searchMode ? 5 : 1,
       experimental_transform: smoothStream()

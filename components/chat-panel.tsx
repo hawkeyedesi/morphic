@@ -37,6 +37,7 @@ interface ChatPanelProps {
   showScrollToBottomButton: boolean
   /** Reference to the scroll container */
   scrollContainerRef: React.RefObject<HTMLDivElement>
+  chatId?: string
 }
 
 export function ChatPanel({
@@ -51,7 +52,8 @@ export function ChatPanel({
   append,
   models,
   showScrollToBottomButton,
-  scrollContainerRef
+  scrollContainerRef,
+  chatId
 }: ChatPanelProps) {
   const [showEmptyScreen, setShowEmptyScreen] = useState(false)
   const router = useRouter()
@@ -207,7 +209,7 @@ export function ChatPanel({
                   <DialogHeader>
                     <DialogTitle>Upload Documents</DialogTitle>
                   </DialogHeader>
-                  <DocumentUpload />
+                  {chatId && <DocumentUpload chatId={chatId} />}
                 </DialogContent>
               </Dialog>
             </div>

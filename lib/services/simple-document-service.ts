@@ -10,13 +10,22 @@ import { v4 as uuidv4 } from 'uuid'
 import { analyzeImageWithOllama, checkOllamaAvailability } from './ollama-vision'
 
 // Local storage paths
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads')
-const CHUNKS_FILE = path.join(UPLOAD_DIR, 'chunks.json')
-const EMBEDDINGS_FILE = path.join(UPLOAD_DIR, 'embeddings.json')
+const BASE_UPLOAD_DIR = path.join(process.cwd(), 'uploads')
+
+// Get chat-specific paths
+function getChatPaths(chatId: string) {
+  const chatDir = path.join(BASE_UPLOAD_DIR, 'chats', chatId)
+  return {
+    uploadDir: chatDir,
+    chunksFile: path.join(chatDir, 'chunks.json'),
+    metadataFile: path.join(chatDir, 'metadata.json')
+  }
+}
 
 // Ensure directories exist
-async function ensureDirectories() {
-  await fs.mkdir(UPLOAD_DIR, { recursive: true })
+async function ensureDirectories(chatId: string) {
+  const { uploadDir } = getChatPaths(chatId)
+  await fs.mkdir(uploadDir, { recursive: true })
 }
 
 // Initialize embedding model (runs locally)
@@ -110,42 +119,48 @@ interface StoredChunk extends DocumentChunk {
 }
 
 export class SimpleDocumentService {
-  private chunks: StoredChunk[] = []
-  private initialized = false
+  // Store chunks per chat
+  private chunksByChat: Map<string, StoredChunk[]> = new Map()
+  private initializedChats: Set<string> = new Set()
 
-  async initialize() {
-    if (this.initialized) return
+  async initialize(chatId: string) {
+    if (this.initializedChats.has(chatId)) return
     
-    await ensureDirectories()
+    await ensureDirectories(chatId)
+    const { chunksFile } = getChatPaths(chatId)
     
-    // Load existing chunks
+    // Load existing chunks for this chat
     try {
-      const data = await fs.readFile(CHUNKS_FILE, 'utf-8')
-      this.chunks = JSON.parse(data)
+      const data = await fs.readFile(chunksFile, 'utf-8')
+      this.chunksByChat.set(chatId, JSON.parse(data))
     } catch (e) {
       // File doesn't exist yet
-      this.chunks = []
+      this.chunksByChat.set(chatId, [])
     }
     
-    this.initialized = true
+    this.initializedChats.add(chatId)
   }
 
-  private async saveChunks() {
-    await fs.writeFile(CHUNKS_FILE, JSON.stringify(this.chunks, null, 2))
+  private async saveChunks(chatId: string) {
+    const chunks = this.chunksByChat.get(chatId) || []
+    const { chunksFile } = getChatPaths(chatId)
+    await fs.writeFile(chunksFile, JSON.stringify(chunks, null, 2))
   }
 
   async uploadDocument(
     file: File,
-    userId: string | null
+    userId: string | null,
+    chatId: string
   ): Promise<Document> {
-    await this.initialize()
+    await this.initialize(chatId)
     
     const documentId = uuidv4()
     const buffer = Buffer.from(await file.arrayBuffer())
     
     // Save file to local storage
     const filename = `${documentId}_${file.name}`
-    const filepath = path.join(UPLOAD_DIR, filename)
+    const { uploadDir } = getChatPaths(chatId)
+    const filepath = path.join(uploadDir, filename)
     await fs.writeFile(filepath, buffer)
     
     // Parse document based on type
@@ -173,9 +188,10 @@ export class SimpleDocumentService {
     const textChunks = chunkText(content)
     
     // Generate embeddings and store chunks
+    const chunks = this.chunksByChat.get(chatId) || []
     for (let i = 0; i < textChunks.length; i++) {
       const embedding = await generateEmbedding(textChunks[i])
-      this.chunks.push({
+      chunks.push({
         id: uuidv4(),
         document_id: documentId,
         content: textChunks[i],
@@ -188,9 +204,10 @@ export class SimpleDocumentService {
         created_at: new Date().toISOString()
       })
     }
+    this.chunksByChat.set(chatId, chunks)
     
     // Save chunks to disk
-    await this.saveChunks()
+    await this.saveChunks(chatId)
     
     // Create document record
     const doc: Document = {
@@ -206,27 +223,29 @@ export class SimpleDocumentService {
     }
     
     // Store document metadata
-    const metadataPath = path.join(UPLOAD_DIR, 'metadata.json')
+    const { metadataFile } = getChatPaths(chatId)
     let metadata: Record<string, Document> = {}
     try {
-      const existing = await fs.readFile(metadataPath, 'utf-8')
+      const existing = await fs.readFile(metadataFile, 'utf-8')
       metadata = JSON.parse(existing)
     } catch (e) {
       // File doesn't exist yet
     }
     metadata[documentId] = doc
-    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+    await fs.writeFile(metadataFile, JSON.stringify(metadata, null, 2))
     
     return doc
   }
 
   async searchDocuments(
     query: string,
+    chatId: string,
     limit: number = 5
   ): Promise<DocumentSearchResult[]> {
-    await this.initialize()
+    await this.initialize(chatId)
     
-    if (this.chunks.length === 0) {
+    const chunks = this.chunksByChat.get(chatId) || []
+    if (chunks.length === 0) {
       return []
     }
     
@@ -234,7 +253,7 @@ export class SimpleDocumentService {
     const queryEmbedding = await generateEmbedding(query)
     
     // Calculate similarities
-    const results = this.chunks
+    const results = chunks
       .map(chunk => ({
         chunk,
         similarity: cosineSimilarity(queryEmbedding, chunk.embedding)
@@ -243,10 +262,10 @@ export class SimpleDocumentService {
       .slice(0, limit)
     
     // Get document names
-    const metadataPath = path.join(UPLOAD_DIR, 'metadata.json')
+    const { metadataFile } = getChatPaths(chatId)
     let metadata: Record<string, Document> = {}
     try {
-      const data = await fs.readFile(metadataPath, 'utf-8')
+      const data = await fs.readFile(metadataFile, 'utf-8')
       metadata = JSON.parse(data)
     } catch (e) {
       // Use fallback
@@ -262,10 +281,11 @@ export class SimpleDocumentService {
     }))
   }
 
-  async getDocuments(userId: string | null): Promise<Document[]> {
-    const metadataPath = path.join(UPLOAD_DIR, 'metadata.json')
+  async getDocuments(userId: string | null, chatId: string): Promise<Document[]> {
+    await this.initialize(chatId)
+    const { metadataFile } = getChatPaths(chatId)
     try {
-      const data = await fs.readFile(metadataPath, 'utf-8')
+      const data = await fs.readFile(metadataFile, 'utf-8')
       const metadata: Record<string, Document> = JSON.parse(data)
       
       // Filter by user if needed
@@ -277,29 +297,31 @@ export class SimpleDocumentService {
     }
   }
 
-  async deleteDocument(documentId: string): Promise<void> {
-    await this.initialize()
+  async deleteDocument(documentId: string, chatId: string): Promise<void> {
+    await this.initialize(chatId)
     
     // Remove chunks from memory
-    this.chunks = this.chunks.filter(chunk => chunk.document_id !== documentId)
-    await this.saveChunks()
+    const chunks = this.chunksByChat.get(chatId) || []
+    const filteredChunks = chunks.filter(chunk => chunk.document_id !== documentId)
+    this.chunksByChat.set(chatId, filteredChunks)
+    await this.saveChunks(chatId)
     
     // Delete metadata
-    const metadataPath = path.join(UPLOAD_DIR, 'metadata.json')
+    const { metadataFile, uploadDir } = getChatPaths(chatId)
     try {
-      const data = await fs.readFile(metadataPath, 'utf-8')
+      const data = await fs.readFile(metadataFile, 'utf-8')
       const metadata: Record<string, Document> = JSON.parse(data)
       delete metadata[documentId]
-      await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+      await fs.writeFile(metadataFile, JSON.stringify(metadata, null, 2))
     } catch (e) {
       // Ignore if file doesn't exist
     }
     
     // Delete physical file
-    const files = await fs.readdir(UPLOAD_DIR)
+    const files = await fs.readdir(uploadDir)
     const fileToDelete = files.find(f => f.startsWith(documentId))
     if (fileToDelete) {
-      await fs.unlink(path.join(UPLOAD_DIR, fileToDelete))
+      await fs.unlink(path.join(uploadDir, fileToDelete))
     }
   }
 }

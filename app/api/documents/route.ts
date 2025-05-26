@@ -7,10 +7,18 @@ export async function POST(request: NextRequest) {
     const userId = await getCurrentUserId()
     const formData = await request.formData()
     const file = formData.get('file') as File
+    const chatId = formData.get('chatId') as string
     
     if (!file) {
       return NextResponse.json(
         { error: 'No file provided' },
+        { status: 400 }
+      )
+    }
+    
+    if (!chatId) {
+      return NextResponse.json(
+        { error: 'No chatId provided' },
         { status: 400 }
       )
     }
@@ -28,7 +36,7 @@ export async function POST(request: NextRequest) {
     
     // Upload and process document
     const documentService = await getDocumentService()
-    const document = await documentService.uploadDocument(file, userId)
+    const document = await documentService.uploadDocument(file, userId, chatId)
     
     return NextResponse.json({ document })
   } catch (error) {
@@ -43,8 +51,18 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const userId = await getCurrentUserId()
+    const { searchParams } = new URL(request.url)
+    const chatId = searchParams.get('chatId')
+    
+    if (!chatId) {
+      return NextResponse.json(
+        { error: 'No chatId provided' },
+        { status: 400 }
+      )
+    }
+    
     const documentService = await getDocumentService()
-    const documents = await documentService.getDocuments(userId)
+    const documents = await documentService.getDocuments(userId, chatId)
     
     return NextResponse.json({ documents })
   } catch (error) {

@@ -231,6 +231,7 @@ export function Chat({
         models={models}
         showScrollToBottomButton={!isAtBottom}
         scrollContainerRef={scrollContainerRef}
+        chatId={id}
       />
     </div>
   )
