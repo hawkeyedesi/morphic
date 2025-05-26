@@ -38,21 +38,32 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Check if we should use LangChain service (for better processing)
-    const useLangChain = processingMode === 'advanced' || chunkingStrategy
+    console.log('📤 Document upload request:', {
+      processingMode,
+      chunkingStrategy,
+      fileType: file.name.split('.').pop()?.toLowerCase(),
+      fileSize: file.size
+    })
     
-    if (useLangChain) {
+    // Check if we should use advanced service
+    const useAdvanced = processingMode === 'advanced' || chunkingStrategy
+    const useCloud = processingMode === 'cloud'
+    
+    if (useAdvanced || useCloud) {
+      console.log('🚀 Using advanced document service')
       // Build processing config
       const config: ProcessingConfig = {
-        mode: 'local', // Default to local
+        mode: useCloud ? 'cloud' : 'local',
         chunkingStrategy: chunkingStrategy as any || 'auto'
       }
       
-      // Check if cloud processing is requested
-      if (processingMode === 'cloud') {
-        config.mode = 'cloud'
+      // Set up cloud configuration if needed
+      if (config.mode === 'cloud') {
         config.provider = 'openrouter'
         config.apiKey = process.env.OPENROUTER_API_KEY
+        console.log('☁️  Cloud processing enabled with strategy:', config.chunkingStrategy)
+      } else {
+        console.log('🏠 Local processing with strategy:', config.chunkingStrategy)
       }
       
       const advancedService = await getAdvancedDocumentService(config)
@@ -60,6 +71,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({ document })
     } else {
+      console.log('📦 Using simple document service (local embeddings)')
       // Use simple service for basic uploads
       const documentService = await getDocumentService()
       const document = await documentService.uploadDocument(file, userId, chatId)

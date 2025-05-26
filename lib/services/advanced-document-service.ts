@@ -30,16 +30,23 @@ export class AdvancedDocumentService {
   
   constructor(config?: ProcessingConfig) {
     this.config = config || { mode: 'local', chunkingStrategy: 'auto' }
+    console.log('🚀 AdvancedDocumentService initialized:', {
+      mode: this.config.mode,
+      provider: this.config.provider,
+      chunkingStrategy: this.config.chunkingStrategy
+    })
   }
   
   private async getEmbeddings(texts: string[]): Promise<number[][]> {
     if (this.config.mode === 'cloud' && this.config.provider === 'openrouter') {
+      console.log('☁️  Using cloud embeddings (OpenRouter)')
       // Use OpenRouter API for embeddings
       const apiKey = this.config.apiKey || process.env.OPENROUTER_API_KEY
       if (!apiKey) {
         throw new Error('OpenRouter API key not found')
       }
       
+      console.log('🔑 Using OpenRouter with model: openai/text-embedding-3-small')
       const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
         method: 'POST',
         headers: {
@@ -55,18 +62,24 @@ export class AdvancedDocumentService {
       })
       
       if (!response.ok) {
+        const error = await response.text()
+        console.error('❌ OpenRouter API error:', error)
         throw new Error(`OpenRouter API error: ${response.statusText}`)
       }
       
       const data = await response.json()
+      console.log('✅ Cloud embeddings generated for', texts.length, 'chunks')
       return data.data.map((item: any) => item.embedding)
     } else {
+      console.log('🏠 Using local embeddings (Xenova/all-MiniLM-L6-v2)')
       // Use local Xenova embeddings
       if (!this.embedModel) {
+        console.log('⏳ Loading local embedding model...')
         this.embedModel = await pipeline(
           'feature-extraction',
           'Xenova/all-MiniLM-L6-v2'
         )
+        console.log('✅ Local embedding model loaded')
       }
       
       const embeddings: number[][] = []
@@ -74,6 +87,7 @@ export class AdvancedDocumentService {
         const output = await this.embedModel(text, { pooling: 'mean', normalize: true })
         embeddings.push(Array.from(output.data) as number[])
       }
+      console.log('✅ Local embeddings generated for', texts.length, 'chunks')
       return embeddings
     }
   }
@@ -214,6 +228,14 @@ export class AdvancedDocumentService {
   }
   
   async uploadDocument(file: File, userId: string, chatId: string) {
+    console.log('📄 Starting document upload:', {
+      filename: file.name,
+      size: file.size,
+      type: file.type,
+      userId,
+      chatId
+    })
+    
     const documentId = uuidv4()
     const fileType = file.name.split('.').pop()?.toLowerCase() || 'txt'
     
@@ -222,26 +244,40 @@ export class AdvancedDocumentService {
     
     try {
       if (fileType === 'pdf') {
+        console.log('📖 Parsing PDF document...')
         const buffer = Buffer.from(await file.arrayBuffer())
         const data = await pdfParse(buffer)
         content = data.text
+        console.log('✅ PDF parsed, text length:', content.length)
       } else if (['txt', 'md'].includes(fileType)) {
+        console.log('📝 Reading text/markdown file...')
         content = await file.text()
+        console.log('✅ Text read, length:', content.length)
+      } else if (['docx', 'doc'].includes(fileType)) {
+        console.log('📄 Reading DOCX file...')
+        content = await file.text()
+        console.log('✅ DOCX read, length:', content.length)
       } else if (['png', 'jpg', 'jpeg'].includes(fileType)) {
+        console.log('🖼️  Processing image file...')
         // For images, we'll store the base64 and process with Ollama if needed
         const buffer = Buffer.from(await file.arrayBuffer())
         content = `[Image: ${file.name}]\nBase64: ${buffer.toString('base64').substring(0, 100)}...`
+        console.log('✅ Image encoded')
       } else {
+        console.log('📄 Reading file as text (type:', fileType, ')...')
         // For other types, try to read as text
         content = await file.text()
+        console.log('✅ File read, length:', content.length)
       }
     } catch (error) {
-      console.error('Error parsing document:', error)
+      console.error('❌ Error parsing document:', error)
       throw new Error('Failed to parse document content')
     }
     
     // Split content into chunks
+    console.log('✂️  Splitting content with strategy:', this.config.chunkingStrategy)
     const chunks = this.splitText(content, this.config.chunkingStrategy || 'auto')
+    console.log('📊 Created', chunks.length, 'chunks')
     
     // Generate embeddings
     const embeddings = await this.getEmbeddings(chunks)

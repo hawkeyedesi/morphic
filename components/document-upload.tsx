@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Upload, File, X, AlertCircle, Settings2 } from 'lucide-react'
+import { Upload, File, X, AlertCircle, Settings2, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -27,9 +27,11 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedDocument[]>([])
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [useAdvancedProcessing, setUseAdvancedProcessing] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(true) // Show by default
+  const [useAdvancedProcessing, setUseAdvancedProcessing] = useState(true) // ON by default
   const [chunkingStrategy, setChunkingStrategy] = useState<string>('auto')
+  const [processingStatus, setProcessingStatus] = useState<string>('')
+  const [cloudMode, setCloudMode] = useState<boolean>(false)
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -68,16 +70,42 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
     }
 
     setIsUploading(true)
+    setError(null)
+    setProcessingStatus('Preparing upload...')
     
     try {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('chatId', chatId)
       
+      // Check processing mode from localStorage
+      const storedMode = localStorage.getItem(`processing-mode-${chatId}`)
+      console.log('🔍 Processing mode from localStorage:', storedMode)
+      
+      // Determine processing configuration
+      let processingInfo = ''
       if (useAdvancedProcessing) {
-        formData.append('processingMode', 'advanced')
+        // Always send chunking strategy when using advanced
         formData.append('chunkingStrategy', chunkingStrategy)
+        
+        // Check if cloud mode is enabled
+        if (storedMode === 'cloud') {
+          formData.append('processingMode', 'cloud')
+          processingInfo = `Advanced (${chunkingStrategy} chunking) + Cloud embeddings`
+        } else {
+          formData.append('processingMode', 'advanced')
+          processingInfo = `Advanced (${chunkingStrategy} chunking) + Local embeddings`
+        }
+      } else if (storedMode === 'cloud') {
+        // If not using advanced but cloud mode is selected, use cloud for embeddings
+        formData.append('processingMode', 'cloud')
+        processingInfo = 'Simple + Cloud embeddings'
+      } else {
+        // Simple local processing (default)
+        processingInfo = 'Simple + Local embeddings'
       }
+      
+      setProcessingStatus(`Uploading with ${processingInfo}...`)
       
       const response = await fetch('/api/documents', {
         method: 'POST',
@@ -91,11 +119,16 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
       
       const { document } = await response.json()
       setUploadedFiles(prev => [...prev, document])
+      setProcessingStatus('Upload complete!')
       
       // Refresh the document list
       fetchDocuments()
+      
+      // Clear status after 3 seconds
+      setTimeout(() => setProcessingStatus(''), 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
+      setProcessingStatus('')
     } finally {
       setIsUploading(false)
     }
@@ -127,7 +160,7 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
     }
   }
 
-  // Load documents on mount
+  // Load documents on mount and check cloud mode
   useEffect(() => {
     const loadDocuments = async () => {
       try {
@@ -142,6 +175,18 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
     }
     
     loadDocuments()
+    
+    // Check cloud mode from localStorage
+    const checkCloudMode = () => {
+      const mode = localStorage.getItem(`processing-mode-${chatId}`)
+      setCloudMode(mode === 'cloud')
+    }
+    
+    checkCloudMode()
+    
+    // Listen for storage changes
+    window.addEventListener('storage', checkCloudMode)
+    return () => window.removeEventListener('storage', checkCloudMode)
   }, [chatId])
 
   const formatFileSize = (bytes: number) => {
@@ -185,6 +230,13 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
           </label>
         </Button>
       </Card>
+
+      {/* Processing Status */}
+      {processingStatus && (
+        <div className="text-sm text-muted-foreground text-center animate-pulse">
+          {processingStatus}
+        </div>
+      )}
 
       {/* Advanced Options */}
       <Card className="p-4">
@@ -240,6 +292,29 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
           </div>
         )}
       </Card>
+
+      {/* Current Mode Display */}
+      <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20">
+        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <AlertDescription className="text-sm">
+          <strong>Current mode:</strong>{' '}
+          {useAdvancedProcessing ? (
+            <>
+              Advanced processing with <strong>{chunkingStrategy}</strong> chunking
+              {cloudMode 
+                ? ' + Cloud embeddings (OpenRouter)' 
+                : ' + Local embeddings (Xenova)'}
+            </>
+          ) : (
+            <>
+              Simple processing
+              {cloudMode 
+                ? ' + Cloud embeddings (OpenRouter)' 
+                : ' + Local embeddings (Xenova)'}
+            </>
+          )}
+        </AlertDescription>
+      </Alert>
 
       {/* Error Alert */}
       {error && (
