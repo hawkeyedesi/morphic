@@ -80,8 +80,9 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error('Document upload error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to upload document' },
+      { error: `Failed to upload document: ${errorMessage}` },
       { status: 500 }
     )
   }

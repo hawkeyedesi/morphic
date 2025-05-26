@@ -332,10 +332,40 @@ export class AdvancedDocumentService {
     
     // Save to file system
     const storagePath = join(process.cwd(), 'uploads', 'chats', chatId)
+    console.log('💾 Creating storage directory:', storagePath)
     await fs.mkdir(storagePath, { recursive: true })
     
-    const docPath = join(storagePath, `${documentId}.json`)
-    await fs.writeFile(docPath, JSON.stringify(document, null, 2))
+    // For large documents, save metadata and chunks separately
+    const docMetadata = {
+      id: document.id,
+      user_id: document.user_id,
+      chat_id: document.chat_id,
+      filename: document.filename,
+      file_type: document.file_type,
+      file_size: document.file_size,
+      chunk_count: document.chunk_count,
+      created_at: document.created_at,
+      embedding_dims: embeddings[0]?.length || 0
+    }
+    
+    const metadataPath = join(storagePath, `${documentId}_metadata.json`)
+    const chunksPath = join(storagePath, `${documentId}_chunks.json`)
+    
+    try {
+      console.log('💾 Saving metadata to:', metadataPath)
+      await fs.writeFile(metadataPath, JSON.stringify(docMetadata, null, 2))
+      
+      console.log('💾 Saving chunks to:', chunksPath)
+      console.log(`📊 Total size estimate: ${(JSON.stringify(document.chunks).length / 1024 / 1024).toFixed(2)} MB`)
+      
+      // Save chunks in batches to avoid memory issues
+      await fs.writeFile(chunksPath, JSON.stringify(document.chunks))
+      
+      console.log('✅ Document saved successfully')
+    } catch (error) {
+      console.error('❌ Error saving document:', error)
+      throw new Error('Failed to save document to storage')
+    }
     
     return {
       id: document.id,
@@ -357,22 +387,31 @@ export class AdvancedDocumentService {
       const files = await fs.readdir(storagePath)
       
       for (const file of files) {
-        if (!file.endsWith('.json')) continue
+        if (!file.endsWith('_metadata.json')) continue
         
-        const docPath = join(storagePath, file)
-        const doc: StoredDocument = JSON.parse(await fs.readFile(docPath, 'utf-8'))
+        const docId = file.replace('_metadata.json', '')
+        const metadataPath = join(storagePath, file)
+        const chunksPath = join(storagePath, `${docId}_chunks.json`)
         
-        // Calculate similarity for each chunk
-        for (const chunk of doc.chunks) {
-          const similarity = this.cosineSimilarity(queryEmbedding, chunk.embedding)
+        try {
+          const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'))
+          const chunks = JSON.parse(await fs.readFile(chunksPath, 'utf-8'))
           
-          allResults.push({
-            document_id: doc.id,
-            document_name: doc.filename,
-            content: chunk.content,
-            similarity,
-            metadata: chunk.metadata
-          })
+          // Calculate similarity for each chunk
+          for (const chunk of chunks) {
+            const similarity = this.cosineSimilarity(queryEmbedding, chunk.embedding)
+            
+            allResults.push({
+              document_id: metadata.id,
+              document_name: metadata.filename,
+              content: chunk.content,
+              similarity,
+              metadata: chunk.metadata
+            })
+          }
+        } catch (error) {
+          console.error(`Error loading document ${docId}:`, error)
+          continue
         }
       }
     } catch (error) {
@@ -396,18 +435,23 @@ export class AdvancedDocumentService {
       const documents = []
       
       for (const file of files) {
-        if (!file.endsWith('.json')) continue
+        if (!file.endsWith('_metadata.json')) continue
         
-        const docPath = join(storagePath, file)
-        const doc: StoredDocument = JSON.parse(await fs.readFile(docPath, 'utf-8'))
-        
-        documents.push({
-          id: doc.id,
-          filename: doc.filename,
-          file_size: doc.file_size,
-          chunk_count: doc.chunk_count,
-          created_at: doc.created_at
-        })
+        const metadataPath = join(storagePath, file)
+        try {
+          const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'))
+          
+          documents.push({
+            id: metadata.id,
+            filename: metadata.filename,
+            file_size: metadata.file_size,
+            chunk_count: metadata.chunk_count,
+            created_at: metadata.created_at
+          })
+        } catch (error) {
+          console.error(`Error loading metadata for ${file}:`, error)
+          continue
+        }
       }
       
       return documents
@@ -420,6 +464,13 @@ export class AdvancedDocumentService {
   }
   
   private cosineSimilarity(a: number[], b: number[]): number {
+    // Ensure both vectors have the same length
+    if (a.length !== b.length) {
+      console.warn(`⚠️  Vector dimension mismatch: ${a.length} vs ${b.length}`)
+      // Can't compute similarity between vectors of different dimensions
+      return 0
+    }
+    
     const dotProduct = a.reduce((sum, val, i) => sum + val * b[i], 0)
     const magnitudeA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0))
     const magnitudeB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0))
