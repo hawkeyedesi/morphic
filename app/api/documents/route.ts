@@ -102,10 +102,48 @@ export async function GET(request: NextRequest) {
       )
     }
     
-    const documentService = await getDocumentService()
-    const documents = await documentService.getDocuments(userId, chatId)
+    // Try to get documents from both services and merge them
+    let allDocuments: any[] = []
     
-    return NextResponse.json({ documents })
+    try {
+      // Get simple service documents
+      const documentService = await getDocumentService()
+      const simpleDocuments = await documentService.getDocuments(userId, chatId)
+      console.log('📦 Simple service documents:', simpleDocuments.length)
+      allDocuments.push(...simpleDocuments)
+    } catch (error) {
+      console.log('📦 No simple service documents found or error:', error)
+    }
+    
+    try {
+      // Get advanced service documents (both local and cloud)
+      const localConfig: ProcessingConfig = { mode: 'local', chunkingStrategy: 'auto' }
+      const cloudConfig: ProcessingConfig = { mode: 'cloud', chunkingStrategy: 'auto' }
+      
+      // Try local advanced documents
+      const localAdvancedService = await getAdvancedDocumentService(localConfig)
+      const localAdvancedDocuments = await localAdvancedService.getDocuments(userId, chatId)
+      console.log('🏠 Local advanced service documents:', localAdvancedDocuments.length)
+      allDocuments.push(...localAdvancedDocuments)
+      
+      // Try cloud advanced documents
+      const cloudAdvancedService = await getAdvancedDocumentService(cloudConfig)
+      const cloudAdvancedDocuments = await cloudAdvancedService.getDocuments(userId, chatId)
+      console.log('☁️  Cloud advanced service documents:', cloudAdvancedDocuments.length)
+      allDocuments.push(...cloudAdvancedDocuments)
+      
+    } catch (error) {
+      console.log('🚀 No advanced service documents found or error:', error)
+    }
+    
+    // Remove duplicates based on id
+    const uniqueDocuments = allDocuments.filter((doc, index, self) => 
+      index === self.findIndex(d => d.id === doc.id)
+    )
+    
+    console.log(`📄 Total unique documents found: ${uniqueDocuments.length}`)
+    
+    return NextResponse.json({ documents: uniqueDocuments })
   } catch (error) {
     console.error('Get documents error:', error)
     return NextResponse.json(

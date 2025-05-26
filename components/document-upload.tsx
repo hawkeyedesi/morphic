@@ -81,6 +81,9 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
       // Check processing mode from localStorage
       const storedMode = localStorage.getItem(`processing-mode-${chatId}`)
       console.log('🔍 Processing mode from localStorage:', storedMode)
+      console.log('🔍 Storage key used:', `processing-mode-${chatId}`)
+      console.log('🔍 useAdvancedProcessing:', useAdvancedProcessing)
+      console.log('🔍 cloudMode state:', cloudMode)
       
       // Determine processing configuration
       let processingInfo = ''
