@@ -38,58 +38,32 @@ export class AdvancedDocumentService {
   }
   
   private async getEmbeddings(texts: string[]): Promise<number[][]> {
+    // Note: OpenRouter doesn't support embeddings API, so we always use local embeddings
+    // The cloud/local toggle only affects future features like LLM-based processing
+    
     if (this.config.mode === 'cloud' && this.config.provider === 'openrouter') {
-      console.log('☁️  Using cloud embeddings (OpenRouter)')
-      // Use OpenRouter API for embeddings
-      const apiKey = this.config.apiKey || process.env.OPENROUTER_API_KEY
-      if (!apiKey) {
-        throw new Error('OpenRouter API key not found')
-      }
-      
-      console.log('🔑 Using OpenRouter with model: openai/text-embedding-3-small')
-      const response = await fetch('https://openrouter.ai/api/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': process.env.OPENROUTER_APP_BASE || 'http://localhost:3000',
-          'X-Title': 'Morphic Document Processing',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'openai/text-embedding-3-small',
-          input: texts
-        })
-      })
-      
-      if (!response.ok) {
-        const error = await response.text()
-        console.error('❌ OpenRouter API error:', error)
-        throw new Error(`OpenRouter API error: ${response.statusText}`)
-      }
-      
-      const data = await response.json()
-      console.log('✅ Cloud embeddings generated for', texts.length, 'chunks')
-      return data.data.map((item: any) => item.embedding)
-    } else {
-      console.log('🏠 Using local embeddings (Xenova/all-MiniLM-L6-v2)')
-      // Use local Xenova embeddings
-      if (!this.embedModel) {
-        console.log('⏳ Loading local embedding model...')
-        this.embedModel = await pipeline(
-          'feature-extraction',
-          'Xenova/all-MiniLM-L6-v2'
-        )
-        console.log('✅ Local embedding model loaded')
-      }
-      
-      const embeddings: number[][] = []
-      for (const text of texts) {
-        const output = await this.embedModel(text, { pooling: 'mean', normalize: true })
-        embeddings.push(Array.from(output.data) as number[])
-      }
-      console.log('✅ Local embeddings generated for', texts.length, 'chunks')
-      return embeddings
+      console.log('☁️  Cloud mode enabled (Note: embeddings still run locally)')
+      console.log('ℹ️  OpenRouter doesn't support embeddings, using local Xenova model')
     }
+    
+    console.log('🏠 Using local embeddings (Xenova/all-MiniLM-L6-v2)')
+    // Always use local Xenova embeddings
+    if (!this.embedModel) {
+      console.log('⏳ Loading local embedding model...')
+      this.embedModel = await pipeline(
+        'feature-extraction',
+        'Xenova/all-MiniLM-L6-v2'
+      )
+      console.log('✅ Local embedding model loaded')
+    }
+    
+    const embeddings: number[][] = []
+    for (const text of texts) {
+      const output = await this.embedModel(text, { pooling: 'mean', normalize: true })
+      embeddings.push(Array.from(output.data) as number[])
+    }
+    console.log('✅ Local embeddings generated for', texts.length, 'chunks')
+    return embeddings
   }
   
   private splitText(content: string, strategy: ChunkingStrategy): string[] {

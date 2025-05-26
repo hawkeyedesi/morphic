@@ -91,18 +91,18 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
         // Check if cloud mode is enabled
         if (storedMode === 'cloud') {
           formData.append('processingMode', 'cloud')
-          processingInfo = `Advanced (${chunkingStrategy} chunking) + Cloud embeddings`
+          processingInfo = `Advanced (${chunkingStrategy} chunking) + Cloud mode`
         } else {
           formData.append('processingMode', 'advanced')
-          processingInfo = `Advanced (${chunkingStrategy} chunking) + Local embeddings`
+          processingInfo = `Advanced (${chunkingStrategy} chunking)`
         }
       } else if (storedMode === 'cloud') {
         // If not using advanced but cloud mode is selected, use cloud for embeddings
         formData.append('processingMode', 'cloud')
-        processingInfo = 'Simple + Cloud embeddings'
+        processingInfo = 'Simple processing + Cloud mode'
       } else {
         // Simple local processing (default)
-        processingInfo = 'Simple + Local embeddings'
+        processingInfo = 'Simple processing'
       }
       
       setProcessingStatus(`Uploading with ${processingInfo}...`)
@@ -302,15 +302,15 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
             <>
               Advanced processing with <strong>{chunkingStrategy}</strong> chunking
               {cloudMode 
-                ? ' + Cloud embeddings (OpenRouter)' 
-                : ' + Local embeddings (Xenova)'}
+                ? ' (Cloud mode - future features)' 
+                : ''} + Local embeddings (Xenova)
             </>
           ) : (
             <>
               Simple processing
               {cloudMode 
-                ? ' + Cloud embeddings (OpenRouter)' 
-                : ' + Local embeddings (Xenova)'}
+                ? ' (Cloud mode - future features)' 
+                : ''} + Local embeddings (Xenova)
             </>
           )}
         </AlertDescription>
