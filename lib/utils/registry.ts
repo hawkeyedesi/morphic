@@ -163,6 +163,16 @@ export function getModel(model: string) {
     })
   }
 
+  // if model is native deepseek and includes deepseek-r1 or deepseek-reasoner, add reasoning middleware
+  if (model.includes('deepseek') && !model.includes('openrouter') && (model.includes('deepseek-r1') || model.includes('deepseek-reasoner'))) {
+    return wrapLanguageModel({
+      model: registry.languageModel(model as Parameters<typeof registry.languageModel>[0]),
+      middleware: extractReasoningMiddleware({
+        tagName: 'think'
+      })
+    })
+  }
+
   return registry.languageModel(
     model as Parameters<typeof registry.languageModel>[0]
   )
