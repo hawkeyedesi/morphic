@@ -27,7 +27,9 @@
       "WebFetch(domain:openrouter.ai)",
       "Bash(mkdir:*)",
       "Bash(touch:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)"
     ],
     "deny": []
   }

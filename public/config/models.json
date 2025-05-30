@@ -17,8 +17,16 @@
       "toolCallType": "native"
     },
     {
-      "id": "deepseek/deepseek-r1",
-      "name": "DeepSeek R1 (OpenRouter)",
+      "id": "meta-llama/llama-3.3-70b-instruct",
+      "name": "Llama 3 70B Instruct (OpenRouter)",
+      "provider": "openrouter",
+      "providerId": "openrouter",
+      "enabled": true,
+      "toolCallType": "native"
+    },
+    {
+      "id": "deepseek/deepseek-r1-0528",
+      "name": "DeepSeek R1-0528 (OpenRouter)",
       "provider": "openrouter",
       "providerId": "openrouter",
       "enabled": true,
@@ -34,7 +42,7 @@
     },
     {
       "id": "meta-llama/llama-3-3-70b-instruct",
-      "name": "Llama 3 3B Instruct (RITS)",
+      "name": "Llama 3 70B Instruct (RITS)",
       "provider": "rits",
       "providerId": "rits",
       "enabled": true,
