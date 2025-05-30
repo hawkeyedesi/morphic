@@ -73,8 +73,8 @@
       "toolCallType": "native"
     },
     {
-      "id": "qwen3:30b-a3b",
-      "name": "qwen3-30b-MOE",
+      "id": "qwen3:8b",
+      "name": "qwen3 8b",
       "provider": "Ollama",
       "providerId": "ollama",
       "enabled": true,
@@ -85,7 +85,7 @@
       "name": "Gemma 3 - 27B",
       "provider": "Ollama",
       "providerId": "ollama",
-      "enabled": false,
+      "enabled": true,
       "toolCallType": "manual",
       "toolCallModel": "phi4"
     },
