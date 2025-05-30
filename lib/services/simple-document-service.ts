@@ -288,10 +288,26 @@ export class SimpleDocumentService {
       const data = await fs.readFile(metadataFile, 'utf-8')
       const metadata: Record<string, Document> = JSON.parse(data)
       
-      // Filter by user if needed
-      return Object.values(metadata).filter(doc => 
-        userId ? doc.user_id === userId : true
-      )
+      // Get chunks for content preview
+      const chunks = this.chunksByChat.get(chatId) || []
+      
+      // Filter by user if needed and add preview
+      return Object.values(metadata)
+        .filter(doc => userId ? doc.user_id === userId : true)
+        .map(doc => {
+          // Find first chunk for this document
+          const firstChunk = chunks.find(chunk => chunk.document_id === doc.id)
+          const contentPreview = firstChunk ? firstChunk.content.substring(0, 200) + '...' : ''
+          
+          return {
+            ...doc,
+            content_preview: contentPreview,
+            processing_mode: 'simple' as const,
+            chunking_strategy: 'fixed',
+            embedding_type: 'local' as const,
+            embedding_dimensions: 384
+          }
+        })
     } catch (e) {
       return []
     }

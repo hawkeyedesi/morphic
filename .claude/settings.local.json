@@ -24,7 +24,10 @@
       "Bash(npm --prefix \"/Users/kashy/Library/Mobile Documents/com~apple~CloudDocs/Research/morphic\" run build)",
       "Bash(npm:*)",
       "Bash(ls:*)",
-      "WebFetch(domain:openrouter.ai)"
+      "WebFetch(domain:openrouter.ai)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(pkill:*)"
     ],
     "deny": []
   }

@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collap
 import { Button } from './ui/button'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
+import { SearchResultsEnhanced } from './search-results-enhanced'
 
 interface DocumentResult {
   documentName: string
@@ -39,6 +40,7 @@ export function DocumentSection({
   }
 
   const documentResults = result.results as DocumentResult[]
+  const query = result.query || ''
 
   return (
     <Card className="p-4 mb-2">
@@ -47,7 +49,7 @@ export function DocumentSection({
           <div className="flex items-center gap-2">
             <ToolBadge type="docs">Document Search</ToolBadge>
             <span className="text-sm text-muted-foreground">
-              Found {documentResults.length} relevant sections
+              Searching for: "{query}"
             </span>
           </div>
           <CollapsibleTrigger asChild>
@@ -58,32 +60,15 @@ export function DocumentSection({
         </div>
         
         <CollapsibleContent>
-          <div className="space-y-3 mt-3">
-            {documentResults.map((doc: DocumentResult, idx: number) => (
-              <Card key={idx} className="p-4 border-muted bg-muted/50">
-                <div className="flex items-start gap-3">
-                  <FileText className="size-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 space-y-2 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-medium text-sm">{doc.documentName}</h3>
-                      {doc.pageNumber && (
-                        <Badge variant="secondary" className="text-xs">
-                          Page {doc.pageNumber}
-                        </Badge>
-                      )}
-                      <Badge variant="outline" className="text-xs">
-                        {Math.round(doc.relevanceScore * 100)}% match
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
-                      {doc.content.length > 300 
-                        ? doc.content.substring(0, 300) + '...' 
-                        : doc.content}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ))}
+          <div className="mt-3">
+            <SearchResultsEnhanced 
+              query={query}
+              results={documentResults}
+              onResultClick={(result) => {
+                // Could open document viewer or scroll to result
+                console.log('Clicked result:', result)
+              }}
+            />
           </div>
         </CollapsibleContent>
       </Collapsible>

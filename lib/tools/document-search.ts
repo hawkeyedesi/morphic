@@ -60,12 +60,21 @@ export const documentSearchTool = (chatId: string, processingMode?: 'local' | 'c
         relevanceScore: r.similarity
       }))
       
-      console.log('Document search results:', formattedResults)
+      // Get unique document names
+      const uniqueDocuments = [...new Set(results.map((r: any) => r.document_name))]
+      
+      console.log('Document search results:', {
+        totalResults: formattedResults.length,
+        documentsSearched: uniqueDocuments.length,
+        documentNames: uniqueDocuments
+      })
       
       return {
         success: true,
         results: formattedResults,
-        message: `Found ${results.length} relevant document sections.`
+        query: query,
+        documentsSearched: uniqueDocuments,
+        message: `Found ${results.length} relevant sections across ${uniqueDocuments.length} document${uniqueDocuments.length > 1 ? 's' : ''}.`
       }
     } catch (error) {
       console.error('Document search error:', error)

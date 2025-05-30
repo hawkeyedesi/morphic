@@ -288,10 +288,9 @@ export class AdvancedDocumentService {
         console.log('✅ DOCX read, length:', content.length)
       } else if (['png', 'jpg', 'jpeg'].includes(fileType)) {
         console.log('🖼️  Processing image file...')
-        // For images, we'll store the base64 and process with Ollama if needed
-        const buffer = Buffer.from(await file.arrayBuffer())
-        content = `[Image: ${file.name}]\nBase64: ${buffer.toString('base64').substring(0, 100)}...`
-        console.log('✅ Image encoded')
+        // For now, we'll create a placeholder. In production, you'd use OCR
+        content = `[Image Document: ${file.name}]\n\nThis is an image file. To extract text from images, please use an OCR service or upload a text-based document instead.\n\nFile details:\n- Name: ${file.name}\n- Size: ${(file.size / 1024).toFixed(1)} KB\n- Type: ${fileType.toUpperCase()}\n\nTo search this content effectively, consider:\n1. Converting the image to PDF with OCR\n2. Manually transcribing key information\n3. Using a document with embedded text`
+        console.log('✅ Image placeholder created')
       } else {
         console.log('📄 Reading file as text (type:', fileType, ')...')
         // For other types, try to read as text
@@ -431,13 +430,14 @@ export class AdvancedDocumentService {
           for (const chunk of chunks) {
             const similarity = this.cosineSimilarity(queryEmbedding, chunk.embedding)
             
-            if (similarity > 0) {  // Only add if similarity is valid
+            if (similarity > 0.2) {  // Only add if similarity is above threshold
               allResults.push({
                 document_id: metadata.id,
                 document_name: metadata.filename,
                 content: chunk.content,
                 similarity,
-                metadata: chunk.metadata
+                metadata: chunk.metadata,
+                chunk_index: chunks.indexOf(chunk)
               })
             }
           }
@@ -469,16 +469,37 @@ export class AdvancedDocumentService {
       for (const file of files) {
         if (!file.endsWith('_metadata.json')) continue
         
+        const docId = file.replace('_metadata.json', '')
         const metadataPath = join(storagePath, file)
+        const chunksPath = join(storagePath, `${docId}_chunks.json`)
+        
         try {
           const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf-8'))
+          
+          // Get content preview from first chunk
+          let contentPreview = ''
+          let embeddingDimensions = 0
+          try {
+            const chunks = JSON.parse(await fs.readFile(chunksPath, 'utf-8'))
+            if (chunks.length > 0) {
+              contentPreview = chunks[0].content.substring(0, 200) + '...'
+              embeddingDimensions = chunks[0].embedding?.length || 0
+            }
+          } catch (error) {
+            console.log('Could not load chunks for preview')
+          }
           
           documents.push({
             id: metadata.id,
             filename: metadata.filename,
             file_size: metadata.file_size,
             chunk_count: metadata.chunk_count,
-            created_at: metadata.created_at
+            created_at: metadata.created_at,
+            content_preview: contentPreview,
+            processing_mode: 'advanced',
+            chunking_strategy: metadata.chunking_strategy || this.config.chunkingStrategy,
+            embedding_type: embeddingDimensions === 1536 ? 'cloud' : 'local',
+            embedding_dimensions: embeddingDimensions
           })
         } catch (error) {
           console.error(`Error loading metadata for ${file}:`, error)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Upload, File, X, AlertCircle, Settings2, Info } from 'lucide-react'
+import { Upload, File, X, AlertCircle, Settings2, Info, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { DocumentCard } from '@/components/document-card'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface UploadedDocument {
   id: string
@@ -32,6 +34,8 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
   const [chunkingStrategy, setChunkingStrategy] = useState<string>('auto')
   const [processingStatus, setProcessingStatus] = useState<string>('')
   const [cloudMode, setCloudMode] = useState<boolean>(false)
+  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set())
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault()
@@ -157,14 +161,69 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
       
       if (response.ok) {
         setUploadedFiles(prev => prev.filter(doc => doc.id !== documentId))
+        setSelectedDocs(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(documentId)
+          return newSet
+        })
       }
     } catch (err) {
       console.error('Failed to delete document:', err)
+      setError('Failed to delete document')
     }
+  }
+
+  const deleteBulk = async () => {
+    if (selectedDocs.size === 0) return
+    
+    setIsDeleting(true)
+    setError(null)
+    
+    try {
+      // Delete each selected document
+      const deletePromises = Array.from(selectedDocs).map(id => 
+        fetch(`/api/documents/${id}?chatId=${chatId}`, { method: 'DELETE' })
+      )
+      
+      await Promise.all(deletePromises)
+      
+      // Update state
+      setUploadedFiles(prev => prev.filter(doc => !selectedDocs.has(doc.id)))
+      setSelectedDocs(new Set())
+    } catch (err) {
+      console.error('Failed to delete documents:', err)
+      setError('Failed to delete some documents')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedDocs.size === uploadedFiles.length) {
+      setSelectedDocs(new Set())
+    } else {
+      setSelectedDocs(new Set(uploadedFiles.map(doc => doc.id)))
+    }
+  }
+
+  const handleSelectDoc = (id: string, selected: boolean) => {
+    setSelectedDocs(prev => {
+      const newSet = new Set(prev)
+      if (selected) {
+        newSet.add(id)
+      } else {
+        newSet.delete(id)
+      }
+      return newSet
+    })
   }
 
   // Load documents on mount and check cloud mode
   useEffect(() => {
+    // Check cloud mode from localStorage
+    const storedMode = localStorage.getItem(`processing-mode-${chatId}`)
+    setCloudMode(storedMode === 'cloud')
+    
     const loadDocuments = async () => {
       try {
         const response = await fetch(`/api/documents?chatId=${chatId}`)
@@ -329,31 +388,64 @@ export function DocumentUpload({ chatId }: DocumentUploadProps) {
 
       {/* Uploaded Documents */}
       {uploadedFiles.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            Uploaded Documents ({uploadedFiles.length})
-          </h3>
-          {uploadedFiles.map((doc) => (
-            <Card key={doc.id} className="p-3 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <File className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">{doc.filename}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatFileSize(doc.file_size)} • {doc.chunk_count} chunks
-                  </p>
-                </div>
+        <div className="space-y-3">
+          {/* Header with bulk actions */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Uploaded Documents ({uploadedFiles.length})
+            </h3>
+            
+            {selectedDocs.size > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {selectedDocs.size} selected
+                </span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={deleteBulk}
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Delete
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => deleteDocument(doc.id)}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </Card>
-          ))}
+            )}
+          </div>
+
+          {/* Select all checkbox */}
+          {uploadedFiles.length > 1 && (
+            <div className="flex items-center space-x-2 pb-2 border-b">
+              <Checkbox
+                id="select-all"
+                checked={selectedDocs.size === uploadedFiles.length}
+                onCheckedChange={toggleSelectAll}
+              />
+              <label htmlFor="select-all" className="text-sm text-muted-foreground cursor-pointer">
+                Select all
+              </label>
+            </div>
+          )}
+
+          {/* Document cards */}
+          <div className="space-y-2">
+            {uploadedFiles.map((doc) => (
+              <DocumentCard
+                key={doc.id}
+                document={{
+                  ...doc,
+                  content_preview: 'Document content preview will appear here...',
+                  processing_mode: useAdvancedProcessing ? 'advanced' : 'simple',
+                  chunking_strategy: chunkingStrategy,
+                  embedding_type: cloudMode ? 'cloud' : 'local',
+                  embedding_dimensions: cloudMode ? 1536 : 384
+                }}
+                onDelete={deleteDocument}
+                selected={selectedDocs.has(doc.id)}
+                onSelect={handleSelectDoc}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

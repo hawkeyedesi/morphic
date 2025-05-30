@@ -6,6 +6,10 @@ import React, { useState } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
 import { CollapsibleMessage } from './collapsible-message'
 import { Button } from './ui/button'
+import { MemoizedReactMarkdown } from './ui/markdown'
+import { CodeBlock } from './ui/codeblock'
+import remarkGfm from 'remark-gfm'
+import rehypeExternalLinks from 'rehype-external-links'
 
 type UserMessageProps = {
   message: string
@@ -70,7 +74,35 @@ export const UserMessage: React.FC<UserMessageProps> = ({
           </div>
         ) : (
           <div className="flex justify-between items-start">
-            <div className="flex-1">{message}</div>
+            <MemoizedReactMarkdown
+              rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
+              remarkPlugins={[remarkGfm]}
+              className="flex-1 prose-sm prose-neutral prose-a:text-accent-foreground/50 max-w-none"
+              components={{
+                code({ node, inline, className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || '')
+                  
+                  if (inline) {
+                    return (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    )
+                  }
+                  
+                  return (
+                    <CodeBlock
+                      key={Math.random()}
+                      language={(match && match[1]) || ''}
+                      value={String(children).replace(/\n$/, '')}
+                      {...props}
+                    />
+                  )
+                }
+              }}
+            >
+              {message}
+            </MemoizedReactMarkdown>
             <div
               className={cn(
                 'absolute top-1 right-1 transition-opacity ml-2',
