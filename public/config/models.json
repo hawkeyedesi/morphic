@@ -25,6 +25,22 @@
       "toolCallType": "native"
     },
     {
+      "id": "anthropic/claude-sonnet-4",
+      "name": "Claude Sonnet 4 (OpenRouter)",
+      "provider": "openrouter",
+      "providerId": "openrouter",
+      "enabled": true,
+      "toolCallType": "native"
+    },
+    {
+      "id": "anthropic/claude-3.5-sonnet",
+      "name": "Claude 3.5 Sonnet (OpenRouter)",
+      "provider": "openrouter",
+      "providerId": "openrouter",
+      "enabled": true,
+      "toolCallType": "native"
+    },
+    {
       "id": "meta-llama/llama-3-3-70b-instruct",
       "name": "Llama 3 3B Instruct (RITS)",
       "provider": "rits",
