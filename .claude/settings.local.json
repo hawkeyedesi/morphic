@@ -29,7 +29,9 @@
       "Bash(touch:*)",
       "Bash(pkill:*)",
       "Bash(git pull:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "WebFetch(domain:docs.openwebui.com)",
+      "Bash(docker inspect:*)"
     ],
     "deny": []
   }
