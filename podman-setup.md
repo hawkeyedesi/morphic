@@ -1,8 +1,10 @@
 # Open WebUI with Podman Setup
 
-## Run Open WebUI with Podman
+## Run Open WebUI with Podman: Remove --add-host flag (Podman 5.3+ handles this automatically):
+
+
 ```bash
-podman run -d -p 3000:8080 --add-host=host.containers.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
+podman run -d -p 3000:8080 -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
 ```
 
 ## Key Differences from Docker:
